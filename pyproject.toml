@@ -11,16 +11,43 @@ requires-python = ">=3.11"
 authors = [{ name = "zcbacxc", email = "zcbacxc@users.noreply.github.com" }]
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
+keywords = [
+    "ai",
+    "drama",
+    "story",
+    "production-graph",
+    "pipeline",
+    "provenance",
+    "quality-gate",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4", "ruff>=0.4", "mypy>=1.8"]
+
+[project.urls]
+Homepage = "https://github.com/zcbacxc/drama-forge"
+Repository = "https://github.com/zcbacxc/drama-forge"
+Issues = "https://github.com/zcbacxc/drama-forge/issues"
+Changelog = "https://github.com/zcbacxc/drama-forge/blob/main/CHANGELOG.md"
 
 [project.scripts]
 drama-forge = "drama_forge.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["drama_forge*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

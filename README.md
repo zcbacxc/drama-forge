@@ -1,10 +1,16 @@
+[![English](https://img.shields.io/badge/English-README-blue)](README.md)
+[![简体中文](https://img.shields.io/badge/简体中文-README-green)](README.zh-CN.md)
+
 # Drama Forge
 
-Core Engine for productized AI drama production.
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)
+![CI](https://github.com/zcbacxc/drama-forge/actions/workflows/ci.yml/badge.svg)
+![PyPI](https://img.shields.io/pypi/v/drama-forge)
 
-## What this is
+> Core Engine for productized AI drama production
 
-Drama Forge turns story content into a repeatable, recoverable, repairable production graph:
+Drama Forge turns story content into a **repeatable, recoverable, repairable** production graph. It is **not** a Studio UI, SaaS layer, or prompt library.
 
 ```
 Story → Compiler → Production Spec / Manifest → Production Graph
@@ -13,7 +19,19 @@ Story → Compiler → Production Spec / Manifest → Production Graph
   → Canonical Timeline → Provenance → Production History (SQLite)
 ```
 
-It is **not** a Studio UI, SaaS layer, or prompt library.
+## Features
+
+- Domain kernel: Story / Character / Scene / Shot / Asset / Artifact / Production Graph / Fingerprint
+- Story compiler and production-spec planner
+- Execution runtime with checkpoint, retry, parallel scheduler, cooperative cancel
+- Provider decoupling: mock, OpenAI-compatible HTTP, DeepSeek, SiliconFlow, Agnes
+- Per-capability routing via `provider_policy["by_capability"]`
+- Typed artifact store with provenance and fingerprint cache
+- Quality runtime: validators, evaluators, gates, repair planner
+- Production Knowledge harvest / merge / continuity injection
+- Canonical timeline model and renderer
+- SQLite persistence (schema v2) and verification CLI
+- Nine core engineering validations covered by tests
 
 ## Requirements
 
@@ -21,11 +39,23 @@ It is **not** a Studio UI, SaaS layer, or prompt library.
 
 ## Install
 
+### From PyPI
+
 ```bash
+pip install drama-forge
+```
+
+### From source
+
+```bash
+git clone https://github.com/zcbacxc/drama-forge.git
+cd drama-forge
 pip install -e ".[dev]"
 ```
 
-## Programmatic API
+## Quick start
+
+### Programmatic API
 
 ```python
 from drama_forge import Engine
@@ -37,19 +67,20 @@ print(result.status, result.timeline_artifact.id)
 print(engine.inspect(result.timeline_artifact.id))
 ```
 
-## CLI
+### CLI
 
 ```bash
-python -m drama_forge.cli.main version
-python -m drama_forge.cli.main doctor
-python -m drama_forge.cli.main --db prod.db compile examples/story_sample.json
-python -m drama_forge.cli.main --db prod.db run examples/story_sample.json
-python -m drama_forge.cli.main run examples/story_sample.json --inject-continuity-issue
-python -m drama_forge.cli.main status <execution-id>
-python -m drama_forge.cli.main inspect <artifact-id>
-python -m drama_forge.cli.main validate <execution-id>
-python -m drama_forge.cli.main repair <execution-id> examples/story_sample.json
+drama-forge version
+drama-forge doctor
+drama-forge compile examples/story_sample.json
+drama-forge run examples/story_sample.json
+drama-forge status <execution-id>
+drama-forge inspect <artifact-id>
+drama-forge validate <execution-id>
+drama-forge repair <execution-id> examples/story_sample.json
 ```
+
+Installed console script `drama-forge` is equivalent to `python -m drama_forge.cli.main`.
 
 ## Provider configuration
 
@@ -62,7 +93,7 @@ cp .env.example .env   # or edit ~/.drama-forge/.env
 # then set keys / DRAMA_FORGE_PROVIDER
 ```
 
-To attach an OpenAI-compatible HTTP provider:
+OpenAI-compatible HTTP provider:
 
 ```bash
 export DRAMA_FORGE_PROVIDER=openai_compatible
@@ -72,10 +103,7 @@ export DRAMA_FORGE_PROVIDER_MODEL=gpt-4o-mini
 export DRAMA_FORGE_PROVIDER_DRY_RUN=1   # offline fallback, no network
 ```
 
-### Production providers (Stage C/F)
-
-DeepSeek is used via the shared **OpenAI-compatible** adapter (no vendor-specific adapter).
-SiliconFlow covers image generation.
+Production providers (Stage C/F):
 
 ```bash
 export DRAMA_FORGE_PROVIDER=production          # or deepseek+siliconflow
@@ -83,10 +111,6 @@ export DRAMA_FORGE_DEEPSEEK_API_KEY=sk-...
 export DRAMA_FORGE_SILICONFLOW_API_KEY=sk-...
 # optional: export DRAMA_FORGE_PROVIDER_DRY_RUN=1  # force offline fallbacks
 ```
-
-DeepSeek preset notes (live-verified):
-- chat path is `chat/completions` (not `/v1/chat/completions`)
-- default model is `deepseek-flash` (override with `DRAMA_FORGE_DEEPSEEK_MODEL`)
 
 Pin providers per capability without changing the production graph:
 
@@ -101,27 +125,13 @@ policy = {
 result = engine.run(story, provider_policy=policy)
 ```
 
-Live smoke (optional, requires keys):
-
-```bash
-export DRAMA_FORGE_LIVE_SMOKE=1
-pytest tests/test_live_provider_smoke.py -v
-```
-
-## Tests
-
-```bash
-python -m pytest -v
-ruff check src tests
-```
-
 ## Package layout
 
 ```
 src/drama_forge/
-  domain/         # story, asset, production, quality, continuity
-  compiler/       # parser, story graph, production spec
-  runtime/        # scheduler, worker, checkpoint, events
+  domain/         # story, asset, production, quality, continuity, knowledge
+  compiler/       # parser, story graph, production spec, manifest
+  runtime/        # scheduler, worker, checkpoint, events, cancellation
   providers/      # registry, router, factory, mock + HTTP adapters
   capabilities/   # capability registry, character/scene consistency, audio
   timeline/       # canonical timeline model + renderer
@@ -132,7 +142,23 @@ src/drama_forge/
   cli/            # verification CLI
 ```
 
-## Release
+## Development
 
-See `docs-nocommit/in-progress/release-process.md` (local) and `CHANGELOG.md`.
-CI runs lint + tests + CLI smoke; tags require matching `pyproject.toml` version.
+```bash
+pip install -e ".[dev]"
+python -m pytest -v
+ruff check src tests
+mypy src
+```
+
+## Security
+
+See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately via GitHub Security Advisories.
+
+## License
+
+[AGPL-3.0-or-later](LICENSE)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).

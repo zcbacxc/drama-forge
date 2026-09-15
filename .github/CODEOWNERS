@@ -1,0 +1,25 @@
+# Default owner — all files not explicitly listed
+* @zcbacxc
+
+# Domain kernel
+/src/drama_forge/domain/ @zcbacxc
+
+# Compiler / production graph
+/src/drama_forge/compiler/ @zcbacxc
+
+# Execution runtime
+/src/drama_forge/runtime/ @zcbacxc
+
+# Providers & capabilities
+/src/drama_forge/providers/ @zcbacxc
+/src/drama_forge/capabilities/ @zcbacxc
+
+# Quality runtime
+/src/drama_forge/quality/ @zcbacxc
+
+# Public facade / CLI
+/src/drama_forge/engine.py @zcbacxc
+/src/drama_forge/cli/ @zcbacxc
+
+# CI/CD workflows
+/.github/workflows/ @zcbacxc
