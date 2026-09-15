@@ -1,5 +1,3 @@
-# SPDX-FileCopyrightText: 2026 zcbacxc
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """CLI entry: compile / plan / run / status / inspect / validate / repair / version."""
 
 from __future__ import annotations
@@ -21,30 +19,35 @@ def _print(data: Any) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build CLI argument parser."""
-    parser = argparse.ArgumentParser(
-        prog="drama-forge",
-        description="Drama Forge Core Engine CLI",
-    )
-    parser.add_argument(
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
         "--artifact-root",
         default=None,
         help="Artifact store root directory",
     )
-    parser.add_argument(
+    common.add_argument(
         "--db",
         default=None,
         help="Optional SQLite database path for production history",
     )
+
+    parser = argparse.ArgumentParser(
+        prog="drama-forge",
+        description="Drama Forge Core Engine CLI",
+        parents=[common],
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_compile = sub.add_parser("compile", help="Compile story JSON to story summary")
+    p_compile = sub.add_parser(
+        "compile", help="Compile story JSON to story summary", parents=[common]
+    )
     p_compile.add_argument("story", type=Path)
 
-    p_plan = sub.add_parser("plan", help="Plan production graph from story")
+    p_plan = sub.add_parser("plan", help="Plan production graph from story", parents=[common])
     p_plan.add_argument("story", type=Path)
     p_plan.add_argument("--candidates", type=int, default=2)
 
-    p_run = sub.add_parser("run", help="Run end-to-end production")
+    p_run = sub.add_parser("run", help="Run end-to-end production", parents=[common])
     p_run.add_argument("story", type=Path)
     p_run.add_argument("--candidates", type=int, default=2)
     p_run.add_argument(
@@ -53,21 +56,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force a continuity failure for repair demos",
     )
 
-    p_status = sub.add_parser("status", help="Show execution status")
+    p_status = sub.add_parser("status", help="Show execution status", parents=[common])
     p_status.add_argument("execution_id")
 
-    p_inspect = sub.add_parser("inspect", help="Inspect artifact provenance")
+    p_inspect = sub.add_parser("inspect", help="Inspect artifact provenance", parents=[common])
     p_inspect.add_argument("artifact_id")
 
-    p_validate = sub.add_parser("validate", help="Show quality report")
+    p_validate = sub.add_parser("validate", help="Show quality report", parents=[common])
     p_validate.add_argument("execution_id")
 
-    p_repair = sub.add_parser("repair", help="Plan and apply local repair")
+    p_repair = sub.add_parser("repair", help="Plan and apply local repair", parents=[common])
     p_repair.add_argument("execution_id")
     p_repair.add_argument("story", type=Path)
 
-    sub.add_parser("doctor", help="Self-check environment")
-    sub.add_parser("version", help="Print package version")
+    sub.add_parser("doctor", help="Self-check environment", parents=[common])
+    sub.add_parser("version", help="Print package version", parents=[common])
     return parser
 
 
