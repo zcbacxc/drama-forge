@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drama-forge"
+version = "0.1.0"
+description = "Core Engine for productized AI drama production"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "早川不爱吃香菜" }]
+license = { text = "Proprietary" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+
+[project.scripts]
+drama-forge = "drama_forge.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

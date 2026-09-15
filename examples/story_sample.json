@@ -1,0 +1,65 @@
+{
+  "title": "黎明回声",
+  "world": {
+    "name": "近未来都市",
+    "style": "neo-noir anime",
+    "rules": ["雨夜霓虹", "角色造型稳定"]
+  },
+  "characters": [
+    {
+      "name": "林默",
+      "appearance": "黑色短发，灰色风衣，左眉浅疤",
+      "personality": "冷静克制",
+      "voice_identity": "低沉男声",
+      "costume_state": "风衣未损"
+    },
+    {
+      "name": "苏晚",
+      "appearance": "棕色长发，米色针织衫，银色耳钉",
+      "personality": "敏锐直接",
+      "voice_identity": "清亮女声",
+      "costume_state": "常服"
+    }
+  ],
+  "props": [
+    {
+      "name": "旧怀表",
+      "description": "表盖内侧刻有回声图案"
+    }
+  ],
+  "episodes": [
+    {
+      "title": "第一集：雨夜相遇",
+      "scenes": [
+        {
+          "location": "旧城区天台",
+          "description": "雨夜，霓虹倒影在积水里",
+          "characters": ["林默", "苏晚"],
+          "shots": [
+            {
+              "description": "远景：两人在天台对峙，雨水打在栏杆上",
+              "dialogue": "",
+              "camera": "wide",
+              "duration_seconds": 4.0,
+              "characters": ["林默", "苏晚"]
+            },
+            {
+              "description": "近景：林默抬起旧怀表，表盖半开",
+              "dialogue": "你说的回声，是什么时候开始的？",
+              "camera": "close-up",
+              "duration_seconds": 3.5,
+              "characters": ["林默"]
+            },
+            {
+              "description": "过肩镜头：苏晚指向远处闪烁的招牌",
+              "dialogue": "从那盏灯熄灭之后。",
+              "camera": "ots",
+              "duration_seconds": 3.0,
+              "characters": ["苏晚"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

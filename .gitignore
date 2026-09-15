@@ -1,0 +1,62 @@
+# Local-only design docs (must never be committed)
+/PROJECT_POSITIONING.md
+docs-nocommit/
+DRAMA_FORGE_*.md
+
+# Secrets & local env
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+.venv
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+pip-wheel-metadata/
+
+# Generated production outputs
+output/
+artifacts/
+.drama_forge_artifacts/
+*.mp4
+*.mp3
+*.wav
+*.srt
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.log
+
+# IDE / OS / agent local
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+.claude/
+.mimocode/
+CLAUDE.md
+superpowers/
+
+# Docs site build (if mkdocs is added later)
+/site/
