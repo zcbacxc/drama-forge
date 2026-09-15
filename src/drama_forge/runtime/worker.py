@@ -28,6 +28,14 @@ class ProductionWorker:
         story_id: str = "",
         story_version: int = 1,
     ) -> None:
+        """__init__.
+
+        Args:
+                    router: ProviderRouter
+                    artifact_store: ArtifactStore
+                    story_id: default ''
+                    story_version: default 1
+        """
         self.router = router
         self.artifact_store = artifact_store
         self.story_id = story_id

@@ -30,6 +30,11 @@ class ProviderRouter:
     """
 
     def __init__(self, registry: ProviderRegistry) -> None:
+        """__init__.
+
+        Args:
+                    registry: ProviderRegistry
+        """
         self.registry = registry
 
     @staticmethod

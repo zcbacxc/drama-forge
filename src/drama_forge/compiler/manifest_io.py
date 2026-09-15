@@ -20,7 +20,14 @@ MANIFEST_SCHEMA_VERSION = "1.0"
 
 
 def manifest_to_contract(manifest: ProductionManifest) -> dict[str, Any]:
-    """Serialize a ProductionManifest to the stable external contract dict."""
+    """Serialize a ProductionManifest to the stable external contract dict.
+
+    Args:
+            manifest: ProductionManifest
+
+    Returns:
+            dict[str, Any]
+    """
     return {
         "schema_version": manifest.schema_version or MANIFEST_SCHEMA_VERSION,
         "id": manifest.id,
@@ -41,8 +48,11 @@ def manifest_to_contract(manifest: ProductionManifest) -> dict[str, Any]:
 def manifest_from_contract(data: dict[str, Any]) -> ProductionManifest:
     """Build a ProductionManifest from an external contract dict.
 
-    Raises:
-        ValueError: If required identity fields are missing.
+    Args:
+            data: dict[str, Any]
+
+    Returns:
+            ProductionManifest
     """
     required = ("story_id", "production_spec_id", "graph_id")
     missing = [key for key in required if not data.get(key)]

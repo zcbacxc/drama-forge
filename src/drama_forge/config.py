@@ -44,7 +44,14 @@ def _read_example_env() -> str:
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
-    """Parse a simple KEY=VALUE .env file (no export, # comments)."""
+    """Parse a simple KEY=VALUE .env file (no export, # comments).
+
+    Args:
+            path: Path
+
+    Returns:
+            dict[str, str]
+    """
     result: dict[str, str] = {}
     if not path.is_file():
         return result
@@ -69,8 +76,8 @@ def parse_env_file(path: Path) -> dict[str, str]:
 def ensure_user_config() -> Path:
     """Create ``~/.drama-forge/.env`` from ``.env.example`` if missing.
 
-    Never overwrites an existing user config. First-run notice goes to
-    stderr and is skipped under ``CI``.
+    Returns:
+            Path
     """
     if _USER_ENV.exists():
         return _USER_ENV
@@ -190,7 +197,14 @@ class Settings:
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str] | None = None) -> Settings:
-        """Build Settings from an environment mapping (default ``os.environ``)."""
+        """Build Settings from an environment mapping (default ``os.environ``).
+
+        Args:
+                    environ: default None
+
+        Returns:
+                    Settings
+        """
         env = os.environ if environ is None else environ
 
         def get(key: str, default: str = "") -> str:
@@ -282,7 +296,11 @@ class Settings:
         )
 
     def to_env_dict(self) -> dict[str, str]:
-        """Export as ``DRAMA_FORGE_*`` env vars (used by factory bridges)."""
+        """Export as ``DRAMA_FORGE_*`` env vars (used by factory bridges).
+
+        Returns:
+                    dict[str, str]
+        """
         mapping = {
             "DRAMA_FORGE_PROVIDER": self.provider,
             "DRAMA_FORGE_PROVIDER_BASE_URL": self.provider_base_url,
@@ -327,7 +345,11 @@ class Settings:
         return {k: v for k, v in mapping.items() if v != ""}
 
     def provider_env(self) -> dict[str, str]:
-        """Environment mapping suitable for ``build_default_registry(env=...)``."""
+        """Environment mapping suitable for ``build_default_registry(env=...)``.
+
+        Returns:
+                    dict[str, str]
+        """
         return self.to_env_dict()
 
 
@@ -338,8 +360,11 @@ def get_settings(*, reload: bool = False, load_files: bool = True) -> Settings:
     """Return cached Settings after optionally loading .env layers.
 
     Args:
-        reload: Rebuild from the current process environment.
-        load_files: Ensure user/project .env are applied first.
+            reload: bool (keyword-only)
+            load_files: bool (keyword-only)
+
+    Returns:
+            Settings
     """
     global _settings_cache
     if _settings_cache is not None and not reload:
@@ -351,7 +376,11 @@ def get_settings(*, reload: bool = False, load_files: bool = True) -> Settings:
 
 
 def reset_settings_cache() -> None:
-    """Clear the cached Settings instance (tests)."""
+    """Clear the cached Settings instance (tests).
+
+    Returns:
+            None
+    """
     global _settings_cache
     _settings_cache = None
 

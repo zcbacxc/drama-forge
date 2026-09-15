@@ -35,7 +35,11 @@ class CharacterConsistencyConstraints:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize constraints to a plain dict for generation specs."""
+        """Serialize constraints to a plain dict for generation specs.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "identity_hash": self.identity_hash,
             "appearance_anchor": self.appearance_anchor,

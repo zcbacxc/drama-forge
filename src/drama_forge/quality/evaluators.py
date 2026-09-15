@@ -76,7 +76,14 @@ def evaluate_candidates(
 
 
 def parse_evaluation_json(content: str | bytes) -> dict[str, Any]:
-    """Parse evaluator JSON content safely."""
+    """Parse evaluator JSON content safely.
+
+    Args:
+            content: str | bytes
+
+    Returns:
+            dict[str, Any]
+    """
     if isinstance(content, bytes):
         content = content.decode("utf-8")
     try:

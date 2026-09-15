@@ -20,7 +20,11 @@ def _print(data: Any) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build CLI argument parser."""
+    """Build CLI argument parser.
+
+    Returns:
+            argparse.ArgumentParser
+    """
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
         "--artifact-root",

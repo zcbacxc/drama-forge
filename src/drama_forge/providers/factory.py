@@ -113,8 +113,11 @@ def _split_families(kind: str) -> list[str]:
 def register_mock_providers(registry: ProviderRegistry) -> None:
     """Register the standard local mock provider set.
 
-    Mirrors the Engine defaults so factory-built registries behave the same
-    as the facade's built-in mocks (primary / economy / evaluator).
+    Args:
+            registry: ProviderRegistry
+
+    Returns:
+            None
     """
     registry.register(MockProvider("mock-primary", quality_score=0.9))
     registry.register(
@@ -129,7 +132,14 @@ def register_mock_providers(registry: ProviderRegistry) -> None:
 
 
 def http_config_from_env(env: Mapping[str, str]) -> HttpProviderConfig:
-    """Build HttpProviderConfig from environment variables."""
+    """Build HttpProviderConfig from environment variables.
+
+    Args:
+            env: Mapping[str, str]
+
+    Returns:
+            HttpProviderConfig
+    """
     api_key_env = _env_get(env, "DRAMA_FORGE_PROVIDER_API_KEY_ENV")
     if not api_key_env:
         api_key_env = "DRAMA_FORGE_PROVIDER_API_KEY"
@@ -148,7 +158,15 @@ def http_config_from_env(env: Mapping[str, str]) -> HttpProviderConfig:
 def register_deepseek_provider(
     registry: ProviderRegistry, env: Mapping[str, str]
 ) -> OpenAICompatibleProvider:
-    """Register DeepSeek via the shared OpenAI-compatible HTTP adapter."""
+    """Register DeepSeek via the shared OpenAI-compatible HTTP adapter.
+
+    Args:
+            registry: ProviderRegistry
+            env: Mapping[str, str]
+
+    Returns:
+            OpenAICompatibleProvider
+    """
     config = deepseek_config_from_env(env).to_http_config()
     provider = OpenAICompatibleProvider(config=config, env=dict(env))
     registry.register(provider)
@@ -158,7 +176,15 @@ def register_deepseek_provider(
 def register_siliconflow_provider(
     registry: ProviderRegistry, env: Mapping[str, str]
 ) -> SiliconFlowImageProvider:
-    """Register the SiliconFlow image provider from env configuration."""
+    """Register the SiliconFlow image provider from env configuration.
+
+    Args:
+            registry: ProviderRegistry
+            env: Mapping[str, str]
+
+    Returns:
+            SiliconFlowImageProvider
+    """
     config = siliconflow_config_from_env(env)
     provider = SiliconFlowImageProvider(config=config, env=dict(env))
     registry.register(provider)
@@ -168,7 +194,15 @@ def register_siliconflow_provider(
 def register_agnes_video_provider(
     registry: ProviderRegistry, env: Mapping[str, str]
 ) -> AgnesVideoProvider:
-    """Register the Agnes /v1/videos provider from env configuration."""
+    """Register the Agnes /v1/videos provider from env configuration.
+
+    Args:
+            registry: ProviderRegistry
+            env: Mapping[str, str]
+
+    Returns:
+            AgnesVideoProvider
+    """
     config = agnes_video_config_from_env(env)
     provider = AgnesVideoProvider(config=config, env=dict(env))
     registry.register(provider)
@@ -180,10 +214,12 @@ def register_agnes_image_provider(
 ) -> SiliconFlowImageProvider:
     """Register Agnes image generation via the shared images HTTP adapter.
 
-    Agnes exposes OpenAI-compatible ``POST /v1/images/generations`` for models
-    such as ``agnes-image-2.0-flash`` / ``2.1-flash`` / ``2.5-flash``. Reuses
-    :class:`SiliconFlowImageProvider` (same endpoint contract + response
-    normalization for both SiliconFlow and OpenAI shapes).
+    Args:
+            registry: ProviderRegistry
+            env: Mapping[str, str]
+
+    Returns:
+            SiliconFlowImageProvider
     """
     from drama_forge.providers.siliconflow import SiliconFlowConfig
 

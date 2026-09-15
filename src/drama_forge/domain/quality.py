@@ -39,7 +39,17 @@ class Issue:
         message: str = "",
         **kwargs: object,
     ) -> Issue:
-        """Create a quality issue."""
+        """Create a quality issue.
+
+        Args:
+                    issue_type: IssueType
+                    severity: Severity
+                    message: default ''
+                    **kwargs
+
+        Returns:
+                    Issue
+        """
         return cls(
             id=new_id("issue"),
             issue_type=issue_type,
@@ -63,7 +73,16 @@ class QualityResult:
 
     @classmethod
     def create(cls, subject_id: str, gate: GateResult, **kwargs: object) -> QualityResult:
-        """Create a quality result."""
+        """Create a quality result.
+
+        Args:
+                    subject_id: str
+                    gate: GateResult
+                    **kwargs
+
+        Returns:
+                    QualityResult
+        """
         return cls(id=new_id("qr"), subject_id=subject_id, gate=gate, **kwargs)  # type: ignore[arg-type]
 
 
@@ -92,11 +111,27 @@ class RepairPlan:
 
     @classmethod
     def create(cls, kind: RepairKind, rationale: str = "") -> RepairPlan:
-        """Create an empty repair plan."""
+        """Create an empty repair plan.
+
+        Args:
+                    kind: RepairKind
+                    rationale: default ''
+
+        Returns:
+                    RepairPlan
+        """
         return cls(id=new_id("repair"), kind=kind, rationale=rationale)
 
     def add_invalidate(self, node_id: str, reason: str = "") -> None:
-        """Mark a node for invalidation/regeneration."""
+        """Mark a node for invalidation/regeneration.
+
+        Args:
+                    node_id: str
+                    reason: default ''
+
+        Returns:
+                    None
+        """
         if node_id not in self.invalidate_node_ids:
             self.invalidate_node_ids.append(node_id)
         self.actions.append(
@@ -104,7 +139,14 @@ class RepairPlan:
         )
 
     def add_keep(self, node_id: str) -> None:
-        """Mark a node to keep (do not regenerate)."""
+        """Mark a node to keep (do not regenerate).
+
+        Args:
+                    node_id: str
+
+        Returns:
+                    None
+        """
         if node_id not in self.keep_node_ids:
             self.keep_node_ids.append(node_id)
 
@@ -118,7 +160,11 @@ class ValidationReport:
 
     @property
     def overall_gate(self) -> GateResult:
-        """Worst gate among all results."""
+        """Worst gate among all results.
+
+        Returns:
+                    GateResult
+        """
         if any(r.gate == GateResult.BLOCK for r in self.results):
             return GateResult.BLOCK
         if any(r.gate == GateResult.WARN for r in self.results):
@@ -126,7 +172,14 @@ class ValidationReport:
         return GateResult.PASS
 
     def add(self, result: QualityResult) -> QualityResult:
-        """Append a quality result and flatten issues."""
+        """Append a quality result and flatten issues.
+
+        Args:
+                    result: QualityResult
+
+        Returns:
+                    QualityResult
+        """
         self.results.append(result)
         self.issues.extend(result.issues)
         return result

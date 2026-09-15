@@ -28,7 +28,15 @@ class Character:
 
     @classmethod
     def create(cls, name: str, **kwargs: object) -> Character:
-        """Create a character with a content-stable id."""
+        """Create a character with a content-stable id.
+
+        Args:
+                    name: str
+                    **kwargs
+
+        Returns:
+                    Character
+        """
         return cls(id=_stable_entity_id("char", name), name=name, **kwargs)  # type: ignore[arg-type]
 
 
@@ -43,7 +51,15 @@ class Prop:
 
     @classmethod
     def create(cls, name: str, **kwargs: object) -> Prop:
-        """Create a prop with a generated id."""
+        """Create a prop with a generated id.
+
+        Args:
+                    name: str
+                    **kwargs
+
+        Returns:
+                    Prop
+        """
         return cls(id=new_id("prop"), name=name, **kwargs)  # type: ignore[arg-type]
 
 
@@ -59,7 +75,15 @@ class World:
 
     @classmethod
     def create(cls, name: str, **kwargs: object) -> World:
-        """Create a world with a generated id."""
+        """Create a world with a generated id.
+
+        Args:
+                    name: str
+                    **kwargs
+
+        Returns:
+                    World
+        """
         return cls(id=new_id("world"), name=name, **kwargs)  # type: ignore[arg-type]
 
 
@@ -85,7 +109,17 @@ class Shot:
         description: str = "",
         **kwargs: object,
     ) -> Shot:
-        """Create a shot bound to a scene."""
+        """Create a shot bound to a scene.
+
+        Args:
+                    scene_id: str
+                    index: int
+                    description: default ''
+                    **kwargs
+
+        Returns:
+                    Shot
+        """
         return cls(
             id=_stable_entity_id("shot", scene_id, index),
             scene_id=scene_id,
@@ -110,7 +144,16 @@ class Scene:
 
     @classmethod
     def create(cls, episode_id: str, index: int, **kwargs: object) -> Scene:
-        """Create a scene bound to an episode."""
+        """Create a scene bound to an episode.
+
+        Args:
+                    episode_id: str
+                    index: int
+                    **kwargs
+
+        Returns:
+                    Scene
+        """
         return cls(
             id=_stable_entity_id("scene", episode_id, index),
             episode_id=episode_id,
@@ -119,7 +162,14 @@ class Scene:
         )
 
     def add_shot(self, shot: Shot) -> Shot:
-        """Append a shot to this scene."""
+        """Append a shot to this scene.
+
+        Args:
+                    shot: Shot
+
+        Returns:
+                    Shot
+        """
         shot.scene_id = self.id
         self.shots.append(shot)
         return shot
@@ -138,7 +188,16 @@ class Episode:
 
     @classmethod
     def create(cls, story_id: str, index: int, title: str = "") -> Episode:
-        """Create an episode bound to a story."""
+        """Create an episode bound to a story.
+
+        Args:
+                    story_id: str
+                    index: int
+                    title: default ''
+
+        Returns:
+                    Episode
+        """
         return cls(
             id=_stable_entity_id("ep", story_id, index),
             story_id=story_id,
@@ -147,7 +206,14 @@ class Episode:
         )
 
     def add_scene(self, scene: Scene) -> Scene:
-        """Append a scene to this episode."""
+        """Append a scene to this episode.
+
+        Args:
+                    scene: Scene
+
+        Returns:
+                    Scene
+        """
         scene.episode_id = self.id
         self.scenes.append(scene)
         return scene
@@ -165,7 +231,15 @@ class Event:
 
     @classmethod
     def create(cls, description: str, **kwargs: object) -> Event:
-        """Create a story event."""
+        """Create a story event.
+
+        Args:
+                    description: str
+                    **kwargs
+
+        Returns:
+                    Event
+        """
         return cls(id=new_id("evt"), description=description, **kwargs)  # type: ignore[arg-type]
 
 
@@ -181,7 +255,16 @@ class Relationship:
 
     @classmethod
     def create(cls, source_id: str, target_id: str, kind: str) -> Relationship:
-        """Create a relationship edge."""
+        """Create a relationship edge.
+
+        Args:
+                    source_id: str
+                    target_id: str
+                    kind: str
+
+        Returns:
+                    Relationship
+        """
         return cls(
             id=new_id("rel"),
             source_id=source_id,
@@ -206,7 +289,16 @@ class StoryTimeline:
     entries: list[TimelineEntry] = field(default_factory=list)
 
     def add(self, entity_id: str, order: int, label: str = "") -> TimelineEntry:
-        """Add an ordering entry."""
+        """Add an ordering entry.
+
+        Args:
+                    entity_id: str
+                    order: int
+                    label: default ''
+
+        Returns:
+                    TimelineEntry
+        """
         entry = TimelineEntry(entity_id=entity_id, order=order, label=label)
         self.entries.append(entry)
         self.entries.sort(key=lambda e: e.order)
@@ -231,7 +323,15 @@ class Story:
 
     @classmethod
     def create(cls, title: str, **kwargs: object) -> Story:
-        """Create a story root object."""
+        """Create a story root object.
+
+        Args:
+                    title: str
+                    **kwargs
+
+        Returns:
+                    Story
+        """
         return cls(
             id=_stable_entity_id("story", title),
             title=title,
@@ -239,33 +339,72 @@ class Story:
         )
 
     def add_character(self, character: Character) -> Character:
-        """Register a character on the story."""
+        """Register a character on the story.
+
+        Args:
+                    character: Character
+
+        Returns:
+                    Character
+        """
         self.characters[character.id] = character
         return character
 
     def add_prop(self, prop: Prop) -> Prop:
-        """Register a prop on the story."""
+        """Register a prop on the story.
+
+        Args:
+                    prop: Prop
+
+        Returns:
+                    Prop
+        """
         self.props[prop.id] = prop
         return prop
 
     def add_episode(self, episode: Episode) -> Episode:
-        """Append an episode."""
+        """Append an episode.
+
+        Args:
+                    episode: Episode
+
+        Returns:
+                    Episode
+        """
         episode.story_id = self.id
         self.episodes.append(episode)
         return episode
 
     def add_event(self, event: Event) -> Event:
-        """Append a plot event."""
+        """Append a plot event.
+
+        Args:
+                    event: Event
+
+        Returns:
+                    Event
+        """
         self.events.append(event)
         return event
 
     def add_relationship(self, relationship: Relationship) -> Relationship:
-        """Append a relationship."""
+        """Append a relationship.
+
+        Args:
+                    relationship: Relationship
+
+        Returns:
+                    Relationship
+        """
         self.relationships.append(relationship)
         return relationship
 
     def all_shots(self) -> list[Shot]:
-        """Return every shot in episode/scene order."""
+        """Return every shot in episode/scene order.
+
+        Returns:
+                    list[Shot]
+        """
         shots: list[Shot] = []
         for episode in self.episodes:
             for scene in episode.scenes:
@@ -273,7 +412,11 @@ class Story:
         return shots
 
     def fingerprint(self) -> str:
-        """Compute story content fingerprint for cache/reuse checks."""
+        """Compute story content fingerprint for cache/reuse checks.
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "id": self.id,

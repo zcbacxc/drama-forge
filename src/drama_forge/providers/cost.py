@@ -23,7 +23,11 @@ class ExecutionCostSummary:
     by_capability: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a plain-dict view of the summary."""
+        """Return a plain-dict view of the summary.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "execution_id": self.execution_id,
             "total_cost": self.total_cost,
@@ -44,6 +48,11 @@ class CostTracker:
     """
 
     def __init__(self) -> None:
+        """__init__.
+
+        Args:
+                    None.
+        """
         self._summaries: dict[str, ExecutionCostSummary] = {}
 
     def record(
@@ -110,21 +119,46 @@ class CostTracker:
         return summary
 
     def summary(self, execution_id: str) -> ExecutionCostSummary:
-        """Return the summary for an execution (empty if unknown)."""
+        """Return the summary for an execution (empty if unknown).
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    ExecutionCostSummary
+        """
         return self._summaries.get(
             execution_id, ExecutionCostSummary(execution_id=execution_id)
         )
 
     def total_cost(self, execution_id: str) -> float:
-        """Return total cost for an execution."""
+        """Return total cost for an execution.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    float
+        """
         return self.summary(execution_id).total_cost
 
     def executions(self) -> list[str]:
-        """List execution ids that have recorded costs."""
+        """List execution ids that have recorded costs.
+
+        Returns:
+                    list[str]
+        """
         return list(self._summaries.keys())
 
     def reset(self, execution_id: str | None = None) -> None:
-        """Clear one execution, or all when execution_id is None."""
+        """Clear one execution, or all when execution_id is None.
+
+        Args:
+                    execution_id: default None
+
+        Returns:
+                    None
+        """
         if execution_id is None:
             self._summaries.clear()
             return

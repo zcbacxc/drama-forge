@@ -135,7 +135,14 @@ class SiliconFlowImageProvider(Provider):
         self.network_call_count = 0
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
-        """Execute one image generation request (or return a dry-run fallback)."""
+        """Execute one image generation request (or return a dry-run fallback).
+
+        Args:
+                    request: ProviderRequest
+
+        Returns:
+                    ProviderResponse
+        """
         self.call_count += 1
         api_key = self._resolve_api_key()
         if self.config.dry_run or not api_key:

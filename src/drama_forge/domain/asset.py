@@ -18,7 +18,11 @@ from drama_forge.domain.common import (
 
 
 def utc_now_iso() -> str:
-    """Return current UTC time as ISO-8601 string."""
+    """Return current UTC time as ISO-8601 string.
+
+    Returns:
+            str
+    """
     return datetime.now(UTC).isoformat()
 
 
@@ -39,8 +43,13 @@ class Asset:
     def create(cls, kind: str, name: str, **kwargs: object) -> Asset:
         """Create an asset identity with a content-stable id.
 
-        The id is derived from kind + name + subject_id so replanning the
-        same story content reuses the same asset identity and fingerprints.
+        Args:
+                    kind: str
+                    name: str
+                    **kwargs
+
+        Returns:
+                    Asset
         """
         subject_id = kwargs.get("subject_id")
         key = {
@@ -52,12 +61,20 @@ class Asset:
         return cls(id=asset_id, kind=kind, name=name, **kwargs)  # type: ignore[arg-type]
 
     def bump_version(self) -> Asset:
-        """Return a new version of this asset identity."""
+        """Return a new version of this asset identity.
+
+        Returns:
+                    Asset
+        """
         self.version += 1
         return self
 
     def fingerprint(self) -> str:
-        """Fingerprint of semantic identity + constraints + version."""
+        """Fingerprint of semantic identity + constraints + version.
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "id": self.id,
@@ -89,7 +106,11 @@ class Provenance:
     created_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize provenance for persistence/trace."""
+        """Serialize provenance for persistence/trace.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "story_id": self.story_id,
             "story_version": self.story_version,
@@ -131,7 +152,16 @@ class Artifact:
         content_reference: str,
         **kwargs: object,
     ) -> Artifact:
-        """Create a typed artifact."""
+        """Create a typed artifact.
+
+        Args:
+                    artifact_type: ArtifactType
+                    content_reference: str
+                    **kwargs
+
+        Returns:
+                    Artifact
+        """
         return cls(
             id=new_id("art"),
             artifact_type=artifact_type,
@@ -140,7 +170,11 @@ class Artifact:
         )
 
     def fingerprint(self) -> str:
-        """Fingerprint of production conditions (not raw bytes)."""
+        """Fingerprint of production conditions (not raw bytes).
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "type": self.artifact_type.value,
@@ -169,12 +203,25 @@ class Candidate:
 
     @classmethod
     def create(cls, node_id: str, artifact: Artifact, **kwargs: object) -> Candidate:
-        """Create a candidate for a node."""
+        """Create a candidate for a node.
+
+        Args:
+                    node_id: str
+                    artifact: Artifact
+                    **kwargs
+
+        Returns:
+                    Candidate
+        """
         return cls(id=new_id("cand"), node_id=node_id, artifact=artifact, **kwargs)  # type: ignore[arg-type]
 
     @property
     def total_score(self) -> float:
-        """Weighted aggregate score used for ranking."""
+        """Weighted aggregate score used for ranking.
+
+        Returns:
+                    float
+        """
         return (
             0.35 * self.quality_score
             + 0.25 * self.constraint_score
@@ -191,21 +238,43 @@ class CandidateSet:
     candidates: list[Candidate] = field(default_factory=list)
 
     def add(self, candidate: Candidate) -> Candidate:
-        """Append a candidate."""
+        """Append a candidate.
+
+        Args:
+                    candidate: Candidate
+
+        Returns:
+                    Candidate
+        """
         self.candidates.append(candidate)
         return candidate
 
     def rank(self) -> list[Candidate]:
-        """Return candidates sorted by total score descending."""
+        """Return candidates sorted by total score descending.
+
+        Returns:
+                    list[Candidate]
+        """
         return sorted(self.candidates, key=lambda c: c.total_score, reverse=True)
 
     def best(self) -> Candidate | None:
-        """Return the highest scoring candidate."""
+        """Return the highest scoring candidate.
+
+        Returns:
+                    Candidate | None
+        """
         ranked = self.rank()
         return ranked[0] if ranked else None
 
     def select(self, candidate_id: str | None = None) -> Candidate | None:
-        """Mark a candidate as selected (best if id omitted)."""
+        """Mark a candidate as selected (best if id omitted).
+
+        Args:
+                    candidate_id: default None
+
+        Returns:
+                    Candidate | None
+        """
         target = None
         if candidate_id is None:
             target = self.best()

@@ -45,7 +45,18 @@ class ContinuityRule:
         expected_value: Any = None,
         **kwargs: object,
     ) -> ContinuityRule:
-        """Create a continuity rule with a generated id."""
+        """Create a continuity rule with a generated id.
+
+        Args:
+                    scope: str
+                    subject_id: str
+                    constraint_key: str
+                    expected_value: default None
+                    **kwargs
+
+        Returns:
+                    ContinuityRule
+        """
         return cls(
             id=new_id("crule"),
             scope=scope,
@@ -56,7 +67,11 @@ class ContinuityRule:
         )
 
     def to_issue_type(self) -> IssueType:
-        """Map this rule's scope to a structured issue type."""
+        """Map this rule's scope to a structured issue type.
+
+        Returns:
+                    IssueType
+        """
         mapping = {
             "character": IssueType.CHARACTER_CONTINUITY,
             "scene": IssueType.SCENE_CONTINUITY,
@@ -66,7 +81,11 @@ class ContinuityRule:
         return mapping.get(self.scope, IssueType.CHARACTER_CONTINUITY)
 
     def fingerprint(self) -> str:
-        """Stable fingerprint for rule reuse/dedup."""
+        """Stable fingerprint for rule reuse/dedup.
+
+        Returns:
+                    str
+        """
         from drama_forge.domain.common import stable_hash
 
         return stable_hash(
@@ -104,11 +123,25 @@ class ContinuityReport:
 
     @classmethod
     def create(cls, subject_id: str = "") -> ContinuityReport:
-        """Create an empty continuity report."""
+        """Create an empty continuity report.
+
+        Args:
+                    subject_id: default ''
+
+        Returns:
+                    ContinuityReport
+        """
         return cls(id=new_id("crep"), subject_id=subject_id)
 
     def add_finding(self, finding: ContinuityFinding) -> ContinuityFinding:
-        """Append a finding and recompute the gate."""
+        """Append a finding and recompute the gate.
+
+        Args:
+                    finding: ContinuityFinding
+
+        Returns:
+                    ContinuityFinding
+        """
         self.findings.append(finding)
         self._recompute_gate()
         return finding
@@ -124,11 +157,19 @@ class ContinuityReport:
 
     @property
     def passed(self) -> bool:
-        """True when no finding failed."""
+        """True when no finding failed.
+
+        Returns:
+                    bool
+        """
         return all(f.passed for f in self.findings)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the report for artifact payloads."""
+        """Serialize the report for artifact payloads.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "id": self.id,
             "subject_id": self.subject_id,

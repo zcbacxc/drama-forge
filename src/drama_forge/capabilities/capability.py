@@ -31,11 +31,25 @@ class CapabilitySpec:
     description: str = ""
 
     def accepts(self, media_type: str) -> bool:
-        """Return True if the given media type is an accepted input."""
+        """Return True if the given media type is an accepted input.
+
+        Args:
+                    media_type: str
+
+        Returns:
+                    bool
+        """
         return media_type in self.input_types
 
     def produces(self, media_type: str) -> bool:
-        """Return True if the given media type is a declared output."""
+        """Return True if the given media type is a declared output.
+
+        Args:
+                    media_type: str
+
+        Returns:
+                    bool
+        """
         return media_type in self.output_types
 
 
@@ -43,6 +57,11 @@ class CapabilityRegistry:
     """Registry of capability specs available to the production graph."""
 
     def __init__(self) -> None:
+        """__init__.
+
+        Args:
+                    None.
+        """
         self._specs: dict[str, CapabilitySpec] = {}
 
     def register(self, spec: CapabilitySpec) -> CapabilitySpec:
@@ -64,19 +83,41 @@ class CapabilityRegistry:
         return spec
 
     def get(self, name: str) -> CapabilitySpec | None:
-        """Look up a capability by name."""
+        """Look up a capability by name.
+
+        Args:
+                    name: str
+
+        Returns:
+                    CapabilitySpec | None
+        """
         return self._specs.get(name)
 
     def supports(self, name: str) -> bool:
-        """Return True if the capability name is registered."""
+        """Return True if the capability name is registered.
+
+        Args:
+                    name: str
+
+        Returns:
+                    bool
+        """
         return name in self._specs
 
     def list_capabilities(self) -> list[str]:
-        """Return all registered capability names sorted for determinism."""
+        """Return all registered capability names sorted for determinism.
+
+        Returns:
+                    list[str]
+        """
         return sorted(self._specs)
 
     def continuity_capable(self) -> list[str]:
-        """Return names of capabilities that participate in continuity checks."""
+        """Return names of capabilities that participate in continuity checks.
+
+        Returns:
+                    list[str]
+        """
         return sorted(
             name for name, spec in self._specs.items() if spec.supports_continuity
         )

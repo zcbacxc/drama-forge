@@ -28,7 +28,11 @@ class RenderedTimeline:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the rendered timeline deterministically."""
+        """Serialize the rendered timeline deterministically.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "timeline": self.timeline.to_dict(),
             "segment_order": list(self.segment_order),
@@ -38,7 +42,14 @@ class RenderedTimeline:
         }
 
     def to_json(self, indent: int = 2) -> str:
-        """Export deterministic JSON."""
+        """Export deterministic JSON.
+
+        Args:
+                    indent: default 2
+
+        Returns:
+                    str
+        """
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True, default=str)
 
 

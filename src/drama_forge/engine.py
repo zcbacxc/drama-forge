@@ -54,11 +54,19 @@ class RunResult:
 
     @property
     def events(self) -> list[Any]:
-        """Return execution events."""
+        """Return execution events.
+
+        Returns:
+                    list[Any]
+        """
         return self.context.events.list()
 
     def selected_candidates(self) -> list[Candidate]:
-        """Return selected candidates from context."""
+        """Return selected candidates from context.
+
+        Returns:
+                    list[Candidate]
+        """
         return [
             c
             for c in self.context.candidates.values()
@@ -66,7 +74,11 @@ class RunResult:
         ]
 
     def artifacts(self) -> list[Artifact]:
-        """Return all artifacts produced in this run."""
+        """Return all artifacts produced in this run.
+
+        Returns:
+                    list[Artifact]
+        """
         return list(self.context.artifacts.values())
 
 
@@ -138,7 +150,14 @@ class Engine:
         }
 
     def compile(self, source: str | Path | dict[str, Any]) -> Story:
-        """Compile a story source into a Story domain object."""
+        """Compile a story source into a Story domain object.
+
+        Args:
+                    source: str | Path | dict[str, Any]
+
+        Returns:
+                    Story
+        """
         if isinstance(source, dict):
             return compile_story_from_dict(source)
         return load_story_source(source)
@@ -531,7 +550,14 @@ class Engine:
             )
 
     def status(self, execution_id: str) -> dict[str, Any] | None:
-        """Return execution status summary."""
+        """Return execution status summary.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         result = self._executions.get(execution_id)
         if result is None:
             cp = self.checkpoint_store.load(execution_id)
@@ -558,11 +584,25 @@ class Engine:
         }
 
     def inspect(self, artifact_id: str) -> dict[str, Any] | None:
-        """Trace provenance for an artifact."""
+        """Trace provenance for an artifact.
+
+        Args:
+                    artifact_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         return self.artifact_store.trace(artifact_id)
 
     def validate(self, execution_id: str) -> ValidationReport | None:
-        """Return quality report for an execution."""
+        """Return quality report for an execution.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    ValidationReport | None
+        """
         result = self._executions.get(execution_id)
         return result.report if result else None
 

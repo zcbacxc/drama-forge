@@ -51,13 +51,25 @@ class ProductionKnowledge:
 
     @classmethod
     def create(cls, story_id: str, **kwargs: Any) -> ProductionKnowledge:
-        """Create a knowledge bundle with a generated id."""
+        """Create a knowledge bundle with a generated id.
+
+        Args:
+                    story_id: str
+                    **kwargs
+
+        Returns:
+                    ProductionKnowledge
+        """
         bundle = cls(id=new_id("know"), story_id=story_id, **kwargs)
         bundle.fingerprint = bundle.compute_fingerprint()
         return bundle
 
     def compute_fingerprint(self) -> str:
-        """Fingerprint of distilled rules (excludes source_refs / ids)."""
+        """Fingerprint of distilled rules (excludes source_refs / ids).
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "story_id": self.story_id,
@@ -72,12 +84,23 @@ class ProductionKnowledge:
         )
 
     def recompute_fingerprint(self) -> str:
-        """Refresh and return fingerprint."""
+        """Refresh and return fingerprint.
+
+        Returns:
+                    str
+        """
         self.fingerprint = self.compute_fingerprint()
         return self.fingerprint
 
     def merge(self, other: ProductionKnowledge) -> ProductionKnowledge:
-        """Merge another bundle into a new version (other wins on conflicts)."""
+        """Merge another bundle into a new version (other wins on conflicts).
+
+        Args:
+                    other: ProductionKnowledge
+
+        Returns:
+                    ProductionKnowledge
+        """
         characters = dict(self.character_identity)
         characters.update(other.character_identity)
         style = dict(self.style_rules)
@@ -102,7 +125,11 @@ class ProductionKnowledge:
         return merged
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to a plain dict."""
+        """Serialize to a plain dict.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "id": self.id,
             "story_id": self.story_id,
@@ -121,7 +148,14 @@ class ProductionKnowledge:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProductionKnowledge:
-        """Deserialize from a plain dict."""
+        """Deserialize from a plain dict.
+
+        Args:
+                    data: dict[str, Any]
+
+        Returns:
+                    ProductionKnowledge
+        """
         meta = data.get("metadata") or {}
         return cls(
             id=str(data.get("id") or new_id("know")),
@@ -244,8 +278,11 @@ def apply_knowledge_to_continuity_constraints(
 ) -> dict[str, Any]:
     """Map knowledge into constraints usable by generation specs / validators.
 
+    Args:
+            knowledge: ProductionKnowledge
+
     Returns:
-        Continuity constraint dict with characters and style hints.
+            dict[str, Any]
     """
     constraints = dict(knowledge.continuity_constraints)
     if knowledge.style_rules:

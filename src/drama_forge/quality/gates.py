@@ -9,7 +9,14 @@ from drama_forge.domain.quality import Issue, QualityResult
 
 
 def gate_from_issues(issues: list[Issue]) -> GateResult:
-    """Derive gate result from issue severities."""
+    """Derive gate result from issue severities.
+
+    Args:
+            issues: list[Issue]
+
+    Returns:
+            GateResult
+    """
     if any(i.severity in (Severity.HIGH, Severity.CRITICAL) for i in issues):
         return GateResult.BLOCK
     if issues:
@@ -18,7 +25,14 @@ def gate_from_issues(issues: list[Issue]) -> GateResult:
 
 
 def combine_gates(results: list[QualityResult]) -> GateResult:
-    """Combine multiple quality results into an overall gate."""
+    """Combine multiple quality results into an overall gate.
+
+    Args:
+            results: list[QualityResult]
+
+    Returns:
+            GateResult
+    """
     if any(r.gate == GateResult.BLOCK for r in results):
         return GateResult.BLOCK
     if any(r.gate == GateResult.WARN for r in results):

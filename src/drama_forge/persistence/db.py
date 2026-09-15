@@ -46,7 +46,14 @@ def loads(text: str | None, default: Any = None) -> Any:
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
-    """Convert a sqlite3.Row into a plain dict."""
+    """Convert a sqlite3.Row into a plain dict.
+
+    Args:
+            row: sqlite3.Row | None
+
+    Returns:
+            dict[str, Any] | None
+    """
     if row is None:
         return None
     return {key: row[key] for key in row.keys()}
@@ -90,7 +97,11 @@ class Database:
 
     @property
     def connection(self) -> sqlite3.Connection:
-        """Alias for :meth:`connect` (creates on first access)."""
+        """Alias for :meth:`connect` (creates on first access).
+
+        Returns:
+                    sqlite3.Connection
+        """
         return self.connect()
 
     def migrate(self) -> int:
@@ -114,11 +125,19 @@ class Database:
         return current
 
     def schema_version(self) -> int:
-        """Return the current PRAGMA user_version."""
+        """Return the current PRAGMA user_version.
+
+        Returns:
+                    int
+        """
         return int(self.connect().execute("PRAGMA user_version").fetchone()[0])
 
     def close(self) -> None:
-        """Close the connection if open."""
+        """Close the connection if open.
+
+        Returns:
+                    None
+        """
         if self._conn is not None:
             self._conn.close()
             self._conn = None

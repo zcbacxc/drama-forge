@@ -152,7 +152,11 @@ class VersionedRef:
     version: int = 1
 
     def fingerprint(self) -> str:
-        """Return stable fingerprint of this reference."""
+        """Return stable fingerprint of this reference.
+
+        Returns:
+                    str
+        """
         return stable_hash({"id": self.id, "version": self.version})
 
 
@@ -163,9 +167,25 @@ class MetadataBag:
     data: dict[str, Any] = field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Read a metadata value."""
+        """Read a metadata value.
+
+        Args:
+                    key: str
+                    default: default None
+
+        Returns:
+                    Any
+        """
         return self.data.get(key, default)
 
     def set(self, key: str, value: Any) -> None:
-        """Write a metadata value."""
+        """Write a metadata value.
+
+        Args:
+                    key: str
+                    value: Any
+
+        Returns:
+                    None
+        """
         self.data[key] = value

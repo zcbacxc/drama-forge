@@ -78,7 +78,11 @@ class DeepSeekPreset:
     latency_score: float = 0.75
 
     def to_http_config(self) -> HttpProviderConfig:
-        """Convert to the shared OpenAI-compatible HTTP config."""
+        """Convert to the shared OpenAI-compatible HTTP config.
+
+        Returns:
+                    HttpProviderConfig
+        """
         return HttpProviderConfig(
             base_url=self.base_url,
             api_key_env=self.api_key_env,

@@ -163,7 +163,14 @@ _STORY_BLOCK = re.compile(
 
 
 def story_to_dict(story: Story) -> dict[str, Any]:
-    """Serialize a story into a plain dict (for persistence/debug)."""
+    """Serialize a story into a plain dict (for persistence/debug).
+
+    Args:
+            story: Story
+
+    Returns:
+            dict[str, Any]
+    """
     return {
         "id": story.id,
         "title": story.title,

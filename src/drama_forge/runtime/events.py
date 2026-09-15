@@ -29,12 +29,26 @@ class EventBus:
     """Thread-safe in-memory event log for an execution."""
 
     def __init__(self) -> None:
+        """__init__.
+
+        Args:
+                    None.
+        """
         self._events: list[ExecutionEvent] = []
         self._next_id = 1
         self._lock = threading.Lock()
 
     def emit(self, event_type: str, subject: str, **payload: Any) -> ExecutionEvent:
-        """Append and return a new event."""
+        """Append and return a new event.
+
+        Args:
+                    event_type: str
+                    subject: str
+                    **payload
+
+        Returns:
+                    ExecutionEvent
+        """
         with self._lock:
             event = ExecutionEvent(
                 id=self._next_id,
@@ -47,7 +61,14 @@ class EventBus:
             return event
 
     def list(self, event_type: str | None = None) -> list[ExecutionEvent]:
-        """List events optionally filtered by type."""
+        """List events optionally filtered by type.
+
+        Args:
+                    event_type: default None
+
+        Returns:
+                    list[ExecutionEvent]
+        """
         with self._lock:
             snapshot = list(self._events)
         if event_type is None:

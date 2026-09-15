@@ -15,17 +15,34 @@ class CancellationToken:
     """
 
     def __init__(self) -> None:
+        """__init__.
+
+        Args:
+                    None.
+        """
         self._event = threading.Event()
 
     def cancel(self) -> None:
-        """Request cancellation."""
+        """Request cancellation.
+
+        Returns:
+                    None
+        """
         self._event.set()
 
     @property
     def is_cancelled(self) -> bool:
-        """Whether cancellation has been requested."""
+        """Whether cancellation has been requested.
+
+        Returns:
+                    bool
+        """
         return self._event.is_set()
 
     def reset(self) -> None:
-        """Clear the cancellation flag (tests / reuse)."""
+        """Clear the cancellation flag (tests / reuse).
+
+        Returns:
+                    None
+        """
         self._event.clear()

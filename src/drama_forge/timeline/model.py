@@ -29,7 +29,11 @@ class VideoSegment:
 
     @property
     def end_seconds(self) -> float:
-        """Exclusive end time of this segment."""
+        """Exclusive end time of this segment.
+
+        Returns:
+                    float
+        """
         return self.start_seconds + self.duration_seconds
 
     @classmethod
@@ -39,7 +43,16 @@ class VideoSegment:
         duration_seconds: float = 3.0,
         **kwargs: object,
     ) -> VideoSegment:
-        """Create a video segment with a generated id."""
+        """Create a video segment with a generated id.
+
+        Args:
+                    node_name: str
+                    duration_seconds: default 3.0
+                    **kwargs
+
+        Returns:
+                    VideoSegment
+        """
         return cls(
             id=new_id("vseg"),
             node_name=node_name,
@@ -48,7 +61,11 @@ class VideoSegment:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize for deterministic JSON export."""
+        """Serialize for deterministic JSON export.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "id": self.id,
             "node_name": self.node_name,
@@ -82,7 +99,11 @@ class AudioSegment:
 
     @property
     def end_seconds(self) -> float:
-        """Exclusive end time of this segment."""
+        """Exclusive end time of this segment.
+
+        Returns:
+                    float
+        """
         return self.start_seconds + self.duration_seconds
 
     @classmethod
@@ -92,7 +113,16 @@ class AudioSegment:
         duration_seconds: float = 2.0,
         **kwargs: object,
     ) -> AudioSegment:
-        """Create an audio segment with a generated id."""
+        """Create an audio segment with a generated id.
+
+        Args:
+                    node_name: str
+                    duration_seconds: default 2.0
+                    **kwargs
+
+        Returns:
+                    AudioSegment
+        """
         return cls(
             id=new_id("aseg"),
             node_name=node_name,
@@ -101,7 +131,11 @@ class AudioSegment:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize for deterministic JSON export."""
+        """Serialize for deterministic JSON export.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "id": self.id,
             "node_name": self.node_name,
@@ -129,11 +163,19 @@ class Dialogue:
 
     @property
     def end_seconds(self) -> float:
-        """Exclusive end time of this dialogue."""
+        """Exclusive end time of this dialogue.
+
+        Returns:
+                    float
+        """
         return self.start_seconds + self.duration_seconds
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize for deterministic JSON export."""
+        """Serialize for deterministic JSON export.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "character_id": self.character_id,
             "text": self.text,
@@ -154,7 +196,11 @@ class Transition:
     to_segment_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize for deterministic JSON export."""
+        """Serialize for deterministic JSON export.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "kind": self.kind,
             "at_seconds": self.at_seconds,
@@ -172,7 +218,11 @@ class Marker:
     label: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize for deterministic JSON export."""
+        """Serialize for deterministic JSON export.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "kind": self.kind,
             "at_seconds": self.at_seconds,
@@ -188,12 +238,23 @@ class Track:
     segments: list[Any] = field(default_factory=list)
 
     def add(self, segment: Any) -> Any:
-        """Append a segment to the track."""
+        """Append a segment to the track.
+
+        Args:
+                    segment: Any
+
+        Returns:
+                    Any
+        """
         self.segments.append(segment)
         return segment
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize for deterministic JSON export."""
+        """Serialize for deterministic JSON export.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "kind": self.kind,
             "segments": [s.to_dict() for s in self.segments],
@@ -214,11 +275,26 @@ class Timeline:
 
     @classmethod
     def create(cls, name: str = "", **kwargs: object) -> Timeline:
-        """Create an empty timeline."""
+        """Create an empty timeline.
+
+        Args:
+                    name: default ''
+                    **kwargs
+
+        Returns:
+                    Timeline
+        """
         return cls(id=new_id("tl"), name=name, **kwargs)  # type: ignore[arg-type]
 
     def ensure_track(self, kind: str) -> Track:
-        """Get or create a track of the given kind."""
+        """Get or create a track of the given kind.
+
+        Args:
+                    kind: str
+
+        Returns:
+                    Track
+        """
         track = self.tracks.get(kind)
         if track is None:
             track = Track(kind=kind)
@@ -226,17 +302,32 @@ class Timeline:
         return track
 
     def video_segments(self) -> list[VideoSegment]:
-        """Return video track segments in order."""
+        """Return video track segments in order.
+
+        Returns:
+                    list[VideoSegment]
+        """
         track = self.tracks.get("video")
         return list(track.segments) if track else []
 
     def audio_segments(self) -> list[AudioSegment]:
-        """Return audio track segments in order."""
+        """Return audio track segments in order.
+
+        Returns:
+                    list[AudioSegment]
+        """
         track = self.tracks.get("audio")
         return list(track.segments) if track else []
 
     def find_segment_by_node(self, node_name: str) -> VideoSegment | AudioSegment | None:
-        """Find a segment whose node name or node id matches."""
+        """Find a segment whose node name or node id matches.
+
+        Args:
+                    node_name: str
+
+        Returns:
+                    VideoSegment | AudioSegment | None
+        """
         for video_seg in self.video_segments():
             if video_seg.node_name == node_name or video_seg.node_id == node_name:
                 return video_seg
@@ -246,7 +337,11 @@ class Timeline:
         return None
 
     def total_duration(self) -> float:
-        """Return the timeline duration as max end time across tracks."""
+        """Return the timeline duration as max end time across tracks.
+
+        Returns:
+                    float
+        """
         duration = 0.0
         for video_seg in self.video_segments():
             duration = max(duration, video_seg.end_seconds)
@@ -255,7 +350,11 @@ class Timeline:
         return duration
 
     def fingerprint(self) -> str:
-        """Structural fingerprint of the timeline content."""
+        """Structural fingerprint of the timeline content.
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "name": self.name,
@@ -271,7 +370,11 @@ class Timeline:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the full timeline deterministically."""
+        """Serialize the full timeline deterministically.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -286,5 +389,12 @@ class Timeline:
         }
 
     def to_json(self, indent: int = 2) -> str:
-        """Export deterministic JSON (sorted keys)."""
+        """Export deterministic JSON (sorted keys).
+
+        Args:
+                    indent: default 2
+
+        Returns:
+                    str
+        """
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True, default=str)

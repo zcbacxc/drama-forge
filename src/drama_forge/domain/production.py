@@ -37,8 +37,8 @@ class CanonicalGenerationSpec:
     def fingerprint(self) -> str:
         """Fingerprint of generation conditions for reuse/dedup.
 
-        Excludes node_id so replanning the same production conditions
-        yields the same fingerprint.
+        Returns:
+                    str
         """
         return stable_hash(
             {
@@ -82,12 +82,28 @@ class GraphNode:
         action: str,
         **kwargs: object,
     ) -> GraphNode:
-        """Create a production graph node with a content-stable id."""
+        """Create a production graph node with a content-stable id.
+
+        Args:
+                    name: str
+                    action: str
+                    **kwargs
+
+        Returns:
+                    GraphNode
+        """
         node_id = f"node_{stable_hash({'n': name, 'a': action})[:12]}"
         return cls(id=node_id, name=name, action=action, **kwargs)  # type: ignore[arg-type]
 
     def compute_fingerprint(self, provider_policy: dict[str, Any] | None = None) -> str:
-        """Recompute and store node fingerprint from definition + inputs + policy."""
+        """Recompute and store node fingerprint from definition + inputs + policy.
+
+        Args:
+                    provider_policy: default None
+
+        Returns:
+                    str
+        """
         spec_fp = self.generation_spec.fingerprint() if self.generation_spec else ""
         self.fingerprint = stable_hash(
             {
@@ -112,7 +128,16 @@ class GraphEdge:
 
     @classmethod
     def create(cls, source_id: str, target_id: str, kind: str = "depends_on") -> GraphEdge:
-        """Create a dependency edge."""
+        """Create a dependency edge.
+
+        Args:
+                    source_id: str
+                    target_id: str
+                    kind: default 'depends_on'
+
+        Returns:
+                    GraphEdge
+        """
         return cls(id=new_id("edge"), source_id=source_id, target_id=target_id, kind=kind)
 
 
@@ -130,29 +155,69 @@ class ProductionGraph:
 
     @classmethod
     def create(cls, name: str, **kwargs: object) -> ProductionGraph:
-        """Create an empty production graph."""
+        """Create an empty production graph.
+
+        Args:
+                    name: str
+                    **kwargs
+
+        Returns:
+                    ProductionGraph
+        """
         return cls(id=new_id("graph"), name=name, **kwargs)  # type: ignore[arg-type]
 
     def add_node(self, node: GraphNode) -> GraphNode:
-        """Register a node."""
+        """Register a node.
+
+        Args:
+                    node: GraphNode
+
+        Returns:
+                    GraphNode
+        """
         self.nodes[node.id] = node
         return node
 
     def add_edge(self, edge: GraphEdge) -> GraphEdge:
-        """Register a dependency edge."""
+        """Register a dependency edge.
+
+        Args:
+                    edge: GraphEdge
+
+        Returns:
+                    GraphEdge
+        """
         self.edges.append(edge)
         return edge
 
     def dependents(self, node_id: str) -> list[str]:
-        """Return node ids that directly depend on the given node."""
+        """Return node ids that directly depend on the given node.
+
+        Args:
+                    node_id: str
+
+        Returns:
+                    list[str]
+        """
         return [e.target_id for e in self.edges if e.source_id == node_id]
 
     def dependencies(self, node_id: str) -> list[str]:
-        """Return node ids that the given node directly depends on."""
+        """Return node ids that the given node directly depends on.
+
+        Args:
+                    node_id: str
+
+        Returns:
+                    list[str]
+        """
         return [e.source_id for e in self.edges if e.target_id == node_id]
 
     def ready_nodes(self) -> list[GraphNode]:
-        """Nodes whose dependencies have all succeeded and are still pending."""
+        """Nodes whose dependencies have all succeeded and are still pending.
+
+        Returns:
+                    list[GraphNode]
+        """
         ready: list[GraphNode] = []
         for node in self.nodes.values():
             if node.status not in (NodeStatus.PENDING, NodeStatus.READY, NodeStatus.RETRYING):
@@ -164,12 +229,20 @@ class ProductionGraph:
         return ready
 
     def recompute_all_fingerprints(self) -> None:
-        """Recompute fingerprints for every node."""
+        """Recompute fingerprints for every node.
+
+        Returns:
+                    None
+        """
         for node in self.nodes.values():
             node.compute_fingerprint(self.policy)
 
     def fingerprint(self) -> str:
-        """Structural fingerprint of the whole graph."""
+        """Structural fingerprint of the whole graph.
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "name": self.name,
@@ -182,7 +255,11 @@ class ProductionGraph:
         )
 
     def topological_order(self) -> list[GraphNode]:
-        """Return nodes in dependency order (stable by insertion if cycle-free)."""
+        """Return nodes in dependency order (stable by insertion if cycle-free).
+
+        Returns:
+                    list[GraphNode]
+        """
         indegree = {nid: 0 for nid in self.nodes}
         for edge in self.edges:
             if edge.target_id in indegree:
@@ -228,7 +305,11 @@ class ProductionGraph:
         return invalidated
 
     def reset_invalidated_to_pending(self) -> list[str]:
-        """Reset INVALIDATED nodes to PENDING so they can be re-executed."""
+        """Reset INVALIDATED nodes to PENDING so they can be re-executed.
+
+        Returns:
+                    list[str]
+        """
         reset: list[str] = []
         for node in self.nodes.values():
             if node.status == NodeStatus.INVALIDATED:
@@ -258,11 +339,23 @@ class ProductionSpec:
 
     @classmethod
     def create(cls, story_id: str, story_version: int = 1) -> ProductionSpec:
-        """Create an empty production spec."""
+        """Create an empty production spec.
+
+        Args:
+                    story_id: str
+                    story_version: default 1
+
+        Returns:
+                    ProductionSpec
+        """
         return cls(id=new_id("spec"), story_id=story_id, story_version=story_version)
 
     def fingerprint(self) -> str:
-        """Fingerprint of production requirements."""
+        """Fingerprint of production requirements.
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "story_id": self.story_id,
@@ -301,7 +394,18 @@ class ProductionManifest:
         graph_id: str,
         **kwargs: object,
     ) -> ProductionManifest:
-        """Create a production manifest."""
+        """Create a production manifest.
+
+        Args:
+                    story_id: str
+                    story_version: int
+                    production_spec_id: str
+                    graph_id: str
+                    **kwargs
+
+        Returns:
+                    ProductionManifest
+        """
         return cls(
             id=new_id("man"),
             story_id=story_id,
@@ -312,7 +416,11 @@ class ProductionManifest:
         )
 
     def validate(self) -> list[str]:
-        """Schema-level validation errors (empty if valid)."""
+        """Schema-level validation errors (empty if valid).
+
+        Returns:
+                    list[str]
+        """
         errors: list[str] = []
         if not self.story_id:
             errors.append("story_id is required")
@@ -325,7 +433,11 @@ class ProductionManifest:
         return errors
 
     def fingerprint(self) -> str:
-        """Fingerprint of the production contract."""
+        """Fingerprint of the production contract.
+
+        Returns:
+                    str
+        """
         return stable_hash(
             {
                 "story_id": self.story_id,
@@ -362,7 +474,16 @@ class DecisionRecord:
         subject: str,
         **kwargs: object,
     ) -> DecisionRecord:
-        """Create a decision record."""
+        """Create a decision record.
+
+        Args:
+                    decision_type: str
+                    subject: str
+                    **kwargs
+
+        Returns:
+                    DecisionRecord
+        """
         from drama_forge.domain.asset import utc_now_iso
 
         return cls(

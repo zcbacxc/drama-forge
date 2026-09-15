@@ -13,6 +13,11 @@ class StoryRepository:
     """Persist and load compiled stories as JSON payloads."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(
@@ -29,13 +34,16 @@ class StoryRepository:
         """Insert or replace a story row.
 
         Args:
-            story_id: Stable story identity.
-            title: Human-readable title.
-            version: Story content version.
-            payload: Full story dict serialized as JSON.
-            fingerprint: Optional content fingerprint.
-            created_at: ISO timestamp; defaults to now when empty.
-            updated_at: ISO timestamp; defaults to created_at.
+                    story_id: str
+                    title: str
+                    version: int
+                    payload: dict[str, Any]
+                    fingerprint: str (keyword-only)
+                    created_at: str (keyword-only)
+                    updated_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -105,7 +113,11 @@ class StoryRepository:
         return self.get(row["id"])
 
     def list_all(self) -> list[dict[str, Any]]:
-        """List all stories with decoded payloads."""
+        """List all stories with decoded payloads.
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT id FROM stories ORDER BY updated_at DESC"
         ).fetchall()
@@ -119,8 +131,11 @@ class StoryRepository:
     def delete(self, story_id: str) -> bool:
         """Delete a story by id.
 
+        Args:
+                    story_id: str
+
         Returns:
-            True if a row was removed.
+                    bool
         """
         conn = self.db.connection
         with conn:
@@ -132,6 +147,11 @@ class GraphRepository:
     """Persist production manifests and production graphs."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save_manifest(
@@ -157,22 +177,25 @@ class GraphRepository:
         """Insert or replace a production manifest row.
 
         Args:
-            manifest_id: Manifest identity.
-            story_id: Bound story identity.
-            story_version: Bound story version.
-            production_spec_id: ProductionSpec identity.
-            graph_id: ProductionGraph identity.
-            capability_policy: Capability routing policy JSON.
-            provider_policy: Provider preference policy JSON.
-            selection_policy: Candidate selection policy JSON.
-            quality_policy: Quality gate policy JSON.
-            output_policy: Output/artifact policy JSON.
-            asset_versions: Map of asset id -> version.
-            schema_version: Manifest schema version string.
-            fingerprint: Contract fingerprint.
-            metadata: Free-form metadata bag.
-            payload: Optional full manifest payload for round-trip.
-            created_at: ISO timestamp; defaults to now.
+                    manifest_id: str
+                    story_id: str
+                    story_version: int
+                    production_spec_id: str
+                    graph_id: str
+                    capability_policy: dict[str, Any] | None (keyword-only)
+                    provider_policy: dict[str, Any] | None (keyword-only)
+                    selection_policy: dict[str, Any] | None (keyword-only)
+                    quality_policy: dict[str, Any] | None (keyword-only)
+                    output_policy: dict[str, Any] | None (keyword-only)
+                    asset_versions: dict[str, int] | None (keyword-only)
+                    schema_version: str (keyword-only)
+                    fingerprint: str (keyword-only)
+                    metadata: dict[str, Any] | None (keyword-only)
+                    payload: dict[str, Any] | None (keyword-only)
+                    created_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -224,7 +247,14 @@ class GraphRepository:
             )
 
     def get_manifest(self, manifest_id: str) -> dict[str, Any] | None:
-        """Load a production manifest by id with JSON fields decoded."""
+        """Load a production manifest by id with JSON fields decoded.
+
+        Args:
+                    manifest_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM production_manifests WHERE id = ?",
             (manifest_id,),
@@ -232,7 +262,14 @@ class GraphRepository:
         return self._decode_manifest(row)
 
     def find_manifest_by_fingerprint(self, fingerprint: str) -> dict[str, Any] | None:
-        """Find a manifest by contract fingerprint."""
+        """Find a manifest by contract fingerprint.
+
+        Args:
+                    fingerprint: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT id FROM production_manifests WHERE fingerprint = ? LIMIT 1",
             (fingerprint,),
@@ -242,7 +279,14 @@ class GraphRepository:
         return self.get_manifest(row["id"])
 
     def list_manifests_by_story(self, story_id: str) -> list[dict[str, Any]]:
-        """List manifests bound to a story id."""
+        """List manifests bound to a story id.
+
+        Args:
+                    story_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT id FROM production_manifests WHERE story_id = ? ORDER BY created_at DESC",
             (story_id,),
@@ -266,16 +310,19 @@ class GraphRepository:
         """Insert or replace a production graph row.
 
         Args:
-            graph_id: Graph identity.
-            name: Graph name.
-            version: Graph version.
-            nodes: Node list or id->node map serialized as JSON.
-            edges: Dependency edge list.
-            policy: Global graph policy JSON.
-            metadata: Free-form metadata.
-            fingerprint: Structural fingerprint.
-            created_at: ISO timestamp; defaults to now.
-            updated_at: ISO timestamp; defaults to created_at.
+                    graph_id: str
+                    name: str
+                    version: int
+                    nodes: list[dict[str, Any]] | dict[str, Any]
+                    edges: list[dict[str, Any]]
+                    policy: dict[str, Any] | None (keyword-only)
+                    metadata: dict[str, Any] | None (keyword-only)
+                    fingerprint: str (keyword-only)
+                    created_at: str (keyword-only)
+                    updated_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -315,7 +362,14 @@ class GraphRepository:
             )
 
     def get_graph(self, graph_id: str) -> dict[str, Any] | None:
-        """Load a production graph with nodes/edges decoded."""
+        """Load a production graph with nodes/edges decoded.
+
+        Args:
+                    graph_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM production_graphs WHERE id = ?",
             (graph_id,),
@@ -330,7 +384,14 @@ class GraphRepository:
         return record
 
     def find_graph_by_fingerprint(self, fingerprint: str) -> dict[str, Any] | None:
-        """Find a graph by structural fingerprint."""
+        """Find a graph by structural fingerprint.
+
+        Args:
+                    fingerprint: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT id FROM production_graphs WHERE fingerprint = ? LIMIT 1",
             (fingerprint,),
@@ -363,6 +424,11 @@ class ExecutionRepository:
     """Persist execution runs and fingerprint lookups."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(
@@ -381,15 +447,18 @@ class ExecutionRepository:
         """Insert or replace an execution row.
 
         Args:
-            execution_id: Execution identity.
-            graph_id: Executed production graph id.
-            status: ExecutionStatus value.
-            graph_fingerprint: Graph definition fingerprint.
-            input_fingerprint: Input (story/spec/config) fingerprint.
-            config: Scheduler/engine config snapshot.
-            result_summary: Compact run outcome summary.
-            created_at: ISO timestamp; defaults to now.
-            updated_at: ISO timestamp; defaults to created_at.
+                    execution_id: str
+                    graph_id: str
+                    status: str
+                    graph_fingerprint: str (keyword-only)
+                    input_fingerprint: str (keyword-only)
+                    config: dict[str, Any] | None (keyword-only)
+                    result_summary: dict[str, Any] | None (keyword-only)
+                    created_at: str (keyword-only)
+                    updated_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -427,7 +496,14 @@ class ExecutionRepository:
             )
 
     def get(self, execution_id: str) -> dict[str, Any] | None:
-        """Load an execution by id with JSON fields decoded."""
+        """Load an execution by id with JSON fields decoded.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM executions WHERE id = ?",
             (execution_id,),
@@ -475,7 +551,14 @@ class ExecutionRepository:
         return cur.rowcount > 0
 
     def list_by_graph(self, graph_id: str) -> list[dict[str, Any]]:
-        """List executions for a production graph."""
+        """List executions for a production graph.
+
+        Args:
+                    graph_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM executions WHERE graph_id = ? ORDER BY created_at DESC",
             (graph_id,),
@@ -483,7 +566,14 @@ class ExecutionRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def list_by_status(self, status: str) -> list[dict[str, Any]]:
-        """List executions with the given status."""
+        """List executions with the given status.
+
+        Args:
+                    status: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM executions WHERE status = ? ORDER BY created_at DESC",
             (status,),
@@ -491,7 +581,14 @@ class ExecutionRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def find_by_graph_fingerprint(self, fingerprint: str) -> list[dict[str, Any]]:
-        """List executions sharing a graph fingerprint."""
+        """List executions sharing a graph fingerprint.
+
+        Args:
+                    fingerprint: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             """
             SELECT * FROM executions
@@ -503,7 +600,14 @@ class ExecutionRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def find_by_input_fingerprint(self, fingerprint: str) -> list[dict[str, Any]]:
-        """List executions sharing an input fingerprint."""
+        """List executions sharing an input fingerprint.
+
+        Args:
+                    fingerprint: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             """
             SELECT * FROM executions
@@ -528,13 +632,21 @@ class CheckpointRepository:
     """Persist interrupt/resume checkpoints for executions."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(self, checkpoint: Any) -> None:
         """Persist a checkpoint (Checkpoint dataclass or dict).
 
         Args:
-            checkpoint: Checkpoint object or equivalent dict.
+                    checkpoint: Any
+
+        Returns:
+                    None
         """
         from drama_forge.runtime.checkpoint import Checkpoint
 
@@ -624,8 +736,11 @@ class CheckpointRepository:
     def delete(self, execution_id: str) -> bool:
         """Delete a checkpoint by execution id.
 
+        Args:
+                    execution_id: str
+
         Returns:
-            True if a row was removed.
+                    bool
         """
         conn = self.db.connection
         with conn:
@@ -640,6 +755,11 @@ class ArtifactRepository:
     """Persist artifact metadata and provenance (not media bytes)."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(
@@ -662,19 +782,22 @@ class ArtifactRepository:
         """Insert or replace artifact metadata and optional provenance.
 
         Args:
-            artifact_id: Artifact identity.
-            artifact_type: ArtifactType value.
-            content_reference: Locator for media/bytes (not the bytes).
-            fingerprint: Production-condition fingerprint.
-            source_node: Graph node id that produced the artifact.
-            asset_id: Semantic asset identity.
-            schema_version: Artifact schema version.
-            technical_metadata: Technical metadata JSON.
-            provider_metadata: Provider metadata JSON.
-            generation_metadata: Generation metadata JSON.
-            quality_state: QualityState value.
-            provenance: Optional provenance dict (see Provenance.to_dict()).
-            created_at: ISO timestamp; defaults to now.
+                    artifact_id: str
+                    artifact_type: str
+                    content_reference: str
+                    fingerprint: str (keyword-only)
+                    source_node: str | None (keyword-only)
+                    asset_id: str | None (keyword-only)
+                    schema_version: str (keyword-only)
+                    technical_metadata: dict[str, Any] | None (keyword-only)
+                    provider_metadata: dict[str, Any] | None (keyword-only)
+                    generation_metadata: dict[str, Any] | None (keyword-only)
+                    quality_state: str (keyword-only)
+                    provenance: dict[str, Any] | None (keyword-only)
+                    created_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -766,7 +889,14 @@ class ArtifactRepository:
         )
 
     def get(self, artifact_id: str) -> dict[str, Any] | None:
-        """Load artifact metadata with JSON fields decoded."""
+        """Load artifact metadata with JSON fields decoded.
+
+        Args:
+                    artifact_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM artifacts WHERE id = ?",
             (artifact_id,),
@@ -774,7 +904,14 @@ class ArtifactRepository:
         return self._decode(row)
 
     def get_provenance(self, artifact_id: str) -> dict[str, Any] | None:
-        """Load provenance trace for an artifact."""
+        """Load provenance trace for an artifact.
+
+        Args:
+                    artifact_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM artifact_provenance WHERE artifact_id = ?",
             (artifact_id,),
@@ -789,7 +926,14 @@ class ArtifactRepository:
         return record
 
     def find_by_fingerprint(self, fingerprint: str) -> dict[str, Any] | None:
-        """Find an artifact by production-condition fingerprint."""
+        """Find an artifact by production-condition fingerprint.
+
+        Args:
+                    fingerprint: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT id FROM artifacts WHERE fingerprint = ? LIMIT 1",
             (fingerprint,),
@@ -799,7 +943,14 @@ class ArtifactRepository:
         return self.get(row["id"])
 
     def list_by_node(self, source_node: str) -> list[dict[str, Any]]:
-        """List artifacts produced by a graph node."""
+        """List artifacts produced by a graph node.
+
+        Args:
+                    source_node: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM artifacts WHERE source_node = ? ORDER BY created_at",
             (source_node,),
@@ -807,7 +958,14 @@ class ArtifactRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def list_by_asset(self, asset_id: str) -> list[dict[str, Any]]:
-        """List artifacts bound to a semantic asset."""
+        """List artifacts bound to a semantic asset.
+
+        Args:
+                    asset_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM artifacts WHERE asset_id = ? ORDER BY created_at",
             (asset_id,),
@@ -815,7 +973,14 @@ class ArtifactRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def list_by_execution(self, execution_id: str) -> list[dict[str, Any]]:
-        """List artifacts whose provenance points at an execution."""
+        """List artifacts whose provenance points at an execution.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             """
             SELECT a.* FROM artifacts a
@@ -842,6 +1007,11 @@ class DecisionRepository:
     """Persist decision records (why a choice was made)."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(
@@ -861,16 +1031,19 @@ class DecisionRepository:
         """Insert or replace a decision record.
 
         Args:
-            decision_id: Decision identity.
-            decision_type: routing | selection | gate | other.
-            subject: What the decision was about (node/candidate/artifact).
-            candidates: Candidate ids considered.
-            policy: Decision policy JSON.
-            selected: Chosen candidate/artifact id.
-            reason: Human-readable rationale.
-            evidence: Supporting evidence JSON.
-            execution_id: Optional execution that recorded the decision.
-            created_at: ISO timestamp; defaults to now.
+                    decision_id: str
+                    decision_type: str
+                    subject: str
+                    candidates: list[str] | None (keyword-only)
+                    policy: dict[str, Any] | None (keyword-only)
+                    selected: str | None (keyword-only)
+                    reason: str (keyword-only)
+                    evidence: dict[str, Any] | None (keyword-only)
+                    execution_id: str | None (keyword-only)
+                    created_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -908,7 +1081,14 @@ class DecisionRepository:
             )
 
     def get(self, decision_id: str) -> dict[str, Any] | None:
-        """Load a decision record with JSON fields decoded."""
+        """Load a decision record with JSON fields decoded.
+
+        Args:
+                    decision_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM decision_records WHERE id = ?",
             (decision_id,),
@@ -916,7 +1096,14 @@ class DecisionRepository:
         return self._decode(row)
 
     def list_by_execution(self, execution_id: str) -> list[dict[str, Any]]:
-        """List decisions recorded during an execution."""
+        """List decisions recorded during an execution.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM decision_records WHERE execution_id = ? ORDER BY created_at",
             (execution_id,),
@@ -924,7 +1111,14 @@ class DecisionRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def list_by_subject(self, subject: str) -> list[dict[str, Any]]:
-        """List decisions about a given subject."""
+        """List decisions about a given subject.
+
+        Args:
+                    subject: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM decision_records WHERE subject = ? ORDER BY created_at",
             (subject,),
@@ -932,7 +1126,14 @@ class DecisionRepository:
         return [rec for row in rows if (rec := self._decode(row)) is not None]
 
     def list_by_type(self, decision_type: str) -> list[dict[str, Any]]:
-        """List decisions of a given type."""
+        """List decisions of a given type.
+
+        Args:
+                    decision_type: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM decision_records WHERE decision_type = ? ORDER BY created_at",
             (decision_type,),
@@ -954,6 +1155,11 @@ class QualityRepository:
     """Persist quality results and structured issues."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save_result(
@@ -970,13 +1176,16 @@ class QualityRepository:
         """Insert or replace a quality result and optional nested issues.
 
         Args:
-            result_id: QualityResult identity.
-            subject_id: Subject under evaluation.
-            gate: GateResult value (PASS/WARN/BLOCK).
-            scores: Score map.
-            evidence: Evidence JSON.
-            issues: Optional list of issue dicts (id/issue_type/severity/...).
-            created_at: ISO timestamp; defaults to now.
+                    result_id: str
+                    subject_id: str
+                    gate: str
+                    scores: dict[str, float] | None (keyword-only)
+                    evidence: dict[str, Any] | None (keyword-only)
+                    issues: list[dict[str, Any]] | None (keyword-only)
+                    created_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -1033,7 +1242,23 @@ class QualityRepository:
         suggested_scope: list[str] | None = None,
         created_at: str = "",
     ) -> None:
-        """Insert or replace a standalone quality issue."""
+        """Insert or replace a standalone quality issue.
+
+        Args:
+                    issue_id: str
+                    issue_type: str
+                    severity: str
+                    quality_result_id: str | None (keyword-only)
+                    node_id: str | None (keyword-only)
+                    asset_id: str | None (keyword-only)
+                    message: str (keyword-only)
+                    evidence: dict[str, Any] | None (keyword-only)
+                    suggested_scope: list[str] | None (keyword-only)
+                    created_at: str (keyword-only)
+
+        Returns:
+                    None
+        """
         from drama_forge.domain.asset import utc_now_iso
 
         created = created_at or utc_now_iso()
@@ -1099,7 +1324,14 @@ class QualityRepository:
         )
 
     def get_result(self, result_id: str) -> dict[str, Any] | None:
-        """Load a quality result with JSON fields decoded."""
+        """Load a quality result with JSON fields decoded.
+
+        Args:
+                    result_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM quality_results WHERE id = ?",
             (result_id,),
@@ -1112,7 +1344,14 @@ class QualityRepository:
         return record
 
     def list_results_by_subject(self, subject_id: str) -> list[dict[str, Any]]:
-        """List quality results for a subject."""
+        """List quality results for a subject.
+
+        Args:
+                    subject_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM quality_results WHERE subject_id = ? ORDER BY created_at",
             (subject_id,),
@@ -1128,7 +1367,14 @@ class QualityRepository:
         return result
 
     def get_issue(self, issue_id: str) -> dict[str, Any] | None:
-        """Load a quality issue with JSON fields decoded."""
+        """Load a quality issue with JSON fields decoded.
+
+        Args:
+                    issue_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM quality_issues WHERE id = ?",
             (issue_id,),
@@ -1136,7 +1382,14 @@ class QualityRepository:
         return self._decode_issue(row)
 
     def list_issues_by_result(self, result_id: str) -> list[dict[str, Any]]:
-        """List issues attached to a quality result."""
+        """List issues attached to a quality result.
+
+        Args:
+                    result_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM quality_issues WHERE quality_result_id = ? ORDER BY created_at",
             (result_id,),
@@ -1144,7 +1397,14 @@ class QualityRepository:
         return [rec for row in rows if (rec := self._decode_issue(row)) is not None]
 
     def list_issues_by_node(self, node_id: str) -> list[dict[str, Any]]:
-        """List issues targeting a production node."""
+        """List issues targeting a production node.
+
+        Args:
+                    node_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM quality_issues WHERE node_id = ? ORDER BY created_at",
             (node_id,),
@@ -1152,7 +1412,14 @@ class QualityRepository:
         return [rec for row in rows if (rec := self._decode_issue(row)) is not None]
 
     def list_issues_by_asset(self, asset_id: str) -> list[dict[str, Any]]:
-        """List issues targeting an asset."""
+        """List issues targeting an asset.
+
+        Args:
+                    asset_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM quality_issues WHERE asset_id = ? ORDER BY created_at",
             (asset_id,),
@@ -1173,6 +1440,11 @@ class RepairRepository:
     """Persist repair plans for local re-production."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(
@@ -1190,14 +1462,17 @@ class RepairRepository:
         """Insert or replace a repair plan.
 
         Args:
-            plan_id: RepairPlan identity.
-            kind: RepairKind value (PREFLIGHT/POST_GENERATION).
-            issues: Issue ids this plan addresses.
-            invalidate_node_ids: Nodes to invalidate/regenerate.
-            keep_node_ids: Nodes to keep.
-            actions: Repair action dicts.
-            rationale: Why this plan was produced.
-            created_at: ISO timestamp; defaults to now.
+                    plan_id: str
+                    kind: str
+                    issues: list[str] | None (keyword-only)
+                    invalidate_node_ids: list[str] | None (keyword-only)
+                    keep_node_ids: list[str] | None (keyword-only)
+                    actions: list[dict[str, Any]] | None (keyword-only)
+                    rationale: str (keyword-only)
+                    created_at: str (keyword-only)
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -1231,7 +1506,14 @@ class RepairRepository:
             )
 
     def get(self, plan_id: str) -> dict[str, Any] | None:
-        """Load a repair plan with JSON fields decoded."""
+        """Load a repair plan with JSON fields decoded.
+
+        Args:
+                    plan_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM repair_plans WHERE id = ?",
             (plan_id,),
@@ -1246,7 +1528,14 @@ class RepairRepository:
         return record
 
     def list_by_kind(self, kind: str) -> list[dict[str, Any]]:
-        """List repair plans of a given kind."""
+        """List repair plans of a given kind.
+
+        Args:
+                    kind: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM repair_plans WHERE kind = ? ORDER BY created_at DESC",
             (kind,),
@@ -1268,13 +1557,21 @@ class KnowledgeRepository:
     """Persist Production Knowledge bundles."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(self, knowledge: Any) -> None:
         """Insert or replace a knowledge bundle.
 
         Args:
-            knowledge: ProductionKnowledge domain object.
+                    knowledge: Any
+
+        Returns:
+                    None
         """
         from drama_forge.domain.asset import utc_now_iso
 
@@ -1308,7 +1605,14 @@ class KnowledgeRepository:
         self.db.connection.commit()
 
     def get(self, knowledge_id: str) -> dict[str, Any] | None:
-        """Load one knowledge payload dict."""
+        """Load one knowledge payload dict.
+
+        Args:
+                    knowledge_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             "SELECT * FROM production_knowledge WHERE id = ?",
             (knowledge_id,),
@@ -1321,7 +1625,14 @@ class KnowledgeRepository:
         return record
 
     def latest_for_story(self, story_id: str) -> dict[str, Any] | None:
-        """Load the highest-version knowledge for a story."""
+        """Load the highest-version knowledge for a story.
+
+        Args:
+                    story_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         row = self.db.connection.execute(
             """
             SELECT * FROM production_knowledge
@@ -1343,6 +1654,11 @@ class CandidateRepository:
     """Persist shot candidates produced during an execution."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def save(
@@ -1357,7 +1673,21 @@ class CandidateRepository:
         execution_id: str | None = None,
         payload: dict[str, Any] | None = None,
     ) -> None:
-        """Insert or replace a candidate row."""
+        """Insert or replace a candidate row.
+
+        Args:
+                    candidate_id: str
+                    node_id: str
+                    artifact_id: str (keyword-only)
+                    selected: bool (keyword-only)
+                    score: float (keyword-only)
+                    quality_state: str (keyword-only)
+                    execution_id: str | None (keyword-only)
+                    payload: dict[str, Any] | None (keyword-only)
+
+        Returns:
+                    None
+        """
         from drama_forge.domain.asset import utc_now_iso
 
         self.db.connection.execute(
@@ -1390,7 +1720,14 @@ class CandidateRepository:
         self.db.connection.commit()
 
     def list_by_node(self, node_id: str) -> list[dict[str, Any]]:
-        """List candidates for a production node."""
+        """List candidates for a production node.
+
+        Args:
+                    node_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             "SELECT * FROM candidates WHERE node_id = ? ORDER BY created_at",
             (node_id,),
@@ -1410,6 +1747,11 @@ class EventRepository:
     """Persist structured execution events."""
 
     def __init__(self, db: Database) -> None:
+        """__init__.
+
+        Args:
+                    db: Database
+        """
         self.db = db
 
     def append(
@@ -1420,7 +1762,18 @@ class EventRepository:
         payload: dict[str, Any] | None = None,
         created_at: str = "",
     ) -> None:
-        """Append one execution event."""
+        """Append one execution event.
+
+        Args:
+                    execution_id: str
+                    event_type: str
+                    subject: default ''
+                    payload: default None
+                    created_at: default ''
+
+        Returns:
+                    None
+        """
         from drama_forge.domain.asset import utc_now_iso
 
         self.db.connection.execute(
@@ -1440,7 +1793,14 @@ class EventRepository:
         self.db.connection.commit()
 
     def list_by_execution(self, execution_id: str) -> list[dict[str, Any]]:
-        """List events for one execution in order."""
+        """List events for one execution in order.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    list[dict[str, Any]]
+        """
         rows = self.db.connection.execute(
             """
             SELECT * FROM execution_events

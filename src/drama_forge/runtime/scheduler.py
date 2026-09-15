@@ -20,7 +20,15 @@ class NodeExecutor(Protocol):
     """Protocol for executing a single production node."""
 
     def execute(self, node: GraphNode, context: ExecutionContext) -> TaskResult:
-        """Execute one node and return its result."""
+        """Execute one node and return its result.
+
+        Args:
+                    node: GraphNode
+                    context: ExecutionContext
+
+        Returns:
+                    TaskResult
+        """
         ...
 
 
@@ -74,7 +82,17 @@ class ExecutionPlan:
         config: dict[str, Any] | None = None,
         provider_policy: dict[str, Any] | None = None,
     ) -> ExecutionPlan:
-        """Create an execution plan for a graph."""
+        """Create an execution plan for a graph.
+
+        Args:
+                    graph: ProductionGraph
+                    input_fingerprint: str
+                    config: default None
+                    provider_policy: default None
+
+        Returns:
+                    ExecutionPlan
+        """
         return cls(
             id=new_id("exec"),
             graph_id=graph.id,
@@ -103,6 +121,15 @@ class Scheduler:
         fingerprint_cache: dict[str, dict[str, Any]] | None = None,
         max_workers: int = 1,
     ) -> None:
+        """__init__.
+
+        Args:
+                    executor: NodeExecutor
+                    checkpoint_store: default None
+                    max_attempts: default 3
+                    fingerprint_cache: default None
+                    max_workers: default 1
+        """
         self.executor = executor
         self.checkpoint_store = checkpoint_store or CheckpointStore()
         self.max_attempts = max_attempts

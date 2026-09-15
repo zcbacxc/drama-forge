@@ -30,6 +30,18 @@ class MockProvider(Provider):
         fail_nodes: set[str] | None = None,
         quality_bias: float = 0.0,
     ) -> None:
+        """__init__.
+
+        Args:
+                    provider_id: str
+                    capabilities: default None
+                    quality_score: default 0.8
+                    reliability: default 1.0
+                    cost_score: default 0.7
+                    latency_score: default 0.9
+                    fail_nodes: default None
+                    quality_bias: default 0.0
+        """
         self.id = provider_id
         self.capabilities = capabilities or {
             "text_generation",
@@ -50,7 +62,14 @@ class MockProvider(Provider):
         self.call_count = 0
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
-        """Produce a deterministic mock artifact payload."""
+        """Produce a deterministic mock artifact payload.
+
+        Args:
+                    request: ProviderRequest
+
+        Returns:
+                    ProviderResponse
+        """
         self.call_count += 1
         node_id = request.generation_spec.node_id
         if node_id in self.fail_nodes:
@@ -101,6 +120,11 @@ class MockEvaluatorProvider(Provider):
     """Mock vision evaluator producing scores based on digests."""
 
     def __init__(self, provider_id: str = "mock-evaluator") -> None:
+        """__init__.
+
+        Args:
+                    provider_id: default 'mock-evaluator'
+        """
         self.id = provider_id
         self.capabilities = {"vision_evaluation", "continuity_validation"}
         self.quality_score = 0.85
@@ -110,7 +134,14 @@ class MockEvaluatorProvider(Provider):
         self.call_count = 0
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
-        """Return evaluation scores as JSON content."""
+        """Return evaluation scores as JSON content.
+
+        Args:
+                    request: ProviderRequest
+
+        Returns:
+                    ProviderResponse
+        """
         self.call_count += 1
         inputs = request.inputs
         candidate_digests = inputs.get("candidate_digests") or []

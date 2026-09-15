@@ -27,12 +27,23 @@ class Checkpoint:
     failure_state: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize checkpoint."""
+        """Serialize checkpoint.
+
+        Returns:
+                    dict[str, Any]
+        """
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Checkpoint:
-        """Deserialize checkpoint."""
+        """Deserialize checkpoint.
+
+        Args:
+                    data: dict[str, Any]
+
+        Returns:
+                    Checkpoint
+        """
         return cls(**data)
 
 
@@ -40,15 +51,34 @@ class CheckpointStore:
     """In-memory checkpoint store (swap for SQLite/FS later)."""
 
     def __init__(self) -> None:
+        """__init__.
+
+        Args:
+                    None.
+        """
         self._store: dict[str, Checkpoint] = {}
 
     def save(self, checkpoint: Checkpoint) -> Checkpoint:
-        """Persist a checkpoint by execution id."""
+        """Persist a checkpoint by execution id.
+
+        Args:
+                    checkpoint: Checkpoint
+
+        Returns:
+                    Checkpoint
+        """
         self._store[checkpoint.execution_id] = checkpoint
         return checkpoint
 
     def load(self, execution_id: str) -> Checkpoint | None:
-        """Load a checkpoint if present."""
+        """Load a checkpoint if present.
+
+        Args:
+                    execution_id: str
+
+        Returns:
+                    Checkpoint | None
+        """
         return self._store.get(execution_id)
 
     def update_status_from_graph(
@@ -56,7 +86,15 @@ class CheckpointStore:
         execution_id: str,
         statuses: dict[str, NodeStatus],
     ) -> Checkpoint | None:
-        """Refresh node statuses into an existing checkpoint."""
+        """Refresh node statuses into an existing checkpoint.
+
+        Args:
+                    execution_id: str
+                    statuses: dict[str, NodeStatus]
+
+        Returns:
+                    Checkpoint | None
+        """
         cp = self._store.get(execution_id)
         if cp is None:
             return None

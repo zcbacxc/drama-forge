@@ -25,11 +25,29 @@ class StoryGraph:
     edges: list[tuple[str, str, str]] = field(default_factory=list)
 
     def add_node(self, entity_id: str, kind: str, name: str = "") -> None:
-        """Register a story entity node."""
+        """Register a story entity node.
+
+        Args:
+                    entity_id: str
+                    kind: str
+                    name: default ''
+
+        Returns:
+                    None
+        """
         self.nodes[entity_id] = {"kind": kind, "name": name}
 
     def add_edge(self, source_id: str, target_id: str, kind: str) -> None:
-        """Register a story relationship edge."""
+        """Register a story relationship edge.
+
+        Args:
+                    source_id: str
+                    target_id: str
+                    kind: str
+
+        Returns:
+                    None
+        """
         self.edges.append((source_id, target_id, kind))
 
 
@@ -349,5 +367,9 @@ def build_production_graph(
 
 
 def new_eval_id() -> str:
-    """Temporary id placeholder replaced immediately after node creation."""
+    """Temporary id placeholder replaced immediately after node creation.
+
+    Returns:
+            str
+    """
     return "pending"

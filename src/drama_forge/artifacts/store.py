@@ -15,6 +15,11 @@ class ArtifactStore:
     """Store artifacts on filesystem with in-memory index + provenance."""
 
     def __init__(self, root: str | Path | None = None) -> None:
+        """__init__.
+
+        Args:
+                    root: default None
+        """
         self.root = Path(root) if root else Path.cwd() / ".drama_forge_artifacts"
         self.root.mkdir(parents=True, exist_ok=True)
         self._by_id: dict[str, Artifact] = {}
@@ -54,24 +59,57 @@ class ArtifactStore:
         return artifact
 
     def get(self, artifact_id: str) -> Artifact | None:
-        """Fetch artifact by id."""
+        """Fetch artifact by id.
+
+        Args:
+                    artifact_id: str
+
+        Returns:
+                    Artifact | None
+        """
         return self._by_id.get(artifact_id)
 
     def find_by_fingerprint(self, fingerprint: str) -> Artifact | None:
-        """Reuse lookup by production-condition fingerprint."""
+        """Reuse lookup by production-condition fingerprint.
+
+        Args:
+                    fingerprint: str
+
+        Returns:
+                    Artifact | None
+        """
         artifact_id = self._fingerprint_index.get(fingerprint)
         return self._by_id.get(artifact_id) if artifact_id else None
 
     def list_by_asset(self, asset_id: str) -> list[Artifact]:
-        """List artifacts belonging to an asset."""
+        """List artifacts belonging to an asset.
+
+        Args:
+                    asset_id: str
+
+        Returns:
+                    list[Artifact]
+        """
         return [a for a in self._by_id.values() if a.asset_id == asset_id]
 
     def all(self) -> list[Artifact]:
-        """Return all stored artifacts."""
+        """Return all stored artifacts.
+
+        Returns:
+                    list[Artifact]
+        """
         return list(self._by_id.values())
 
     def attach_provenance(self, artifact_id: str, provenance: Provenance) -> Artifact | None:
-        """Overwrite provenance on an artifact."""
+        """Overwrite provenance on an artifact.
+
+        Args:
+                    artifact_id: str
+                    provenance: Provenance
+
+        Returns:
+                    Artifact | None
+        """
         artifact = self._by_id.get(artifact_id)
         if artifact is None:
             return None
@@ -79,7 +117,14 @@ class ArtifactStore:
         return artifact
 
     def trace(self, artifact_id: str) -> dict[str, Any] | None:
-        """Return full provenance trace for an artifact."""
+        """Return full provenance trace for an artifact.
+
+        Args:
+                    artifact_id: str
+
+        Returns:
+                    dict[str, Any] | None
+        """
         artifact = self._by_id.get(artifact_id)
         if artifact is None:
             return None

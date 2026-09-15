@@ -50,9 +50,23 @@ class Provider(ABC):
 
     @abstractmethod
     def generate(self, request: ProviderRequest) -> ProviderResponse:
-        """Execute one generation request."""
+        """Execute one generation request.
+
+        Args:
+                    request: ProviderRequest
+
+        Returns:
+                    ProviderResponse
+        """
         raise NotImplementedError
 
     def supports(self, capability: str) -> bool:
-        """Whether this provider can handle the capability."""
+        """Whether this provider can handle the capability.
+
+        Args:
+                    capability: str
+
+        Returns:
+                    bool
+        """
         return capability in self.capabilities

@@ -35,7 +35,11 @@ class DialogueAudioSpec:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_generation_inputs(self) -> dict[str, Any]:
-        """Convert to provider-facing generation inputs."""
+        """Convert to provider-facing generation inputs.
+
+        Returns:
+                    dict[str, Any]
+        """
         return {
             "text": self.text,
             "character_voice": self.character_voice,
