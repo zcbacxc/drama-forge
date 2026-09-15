@@ -65,7 +65,7 @@ class _FakeHTTPResponse:
 def test_agnes_config_from_env_defaults() -> None:
     config = agnes_video_config_from_env({})
     assert config.model == "agnes-video-2.5-flash"
-    assert config.mode == "T2V"
+    assert config.mode == "t2v"
     assert config.provider_id == "agnes-video"
     assert config.capabilities == {"video_generation"}
     assert config.dry_run is False
@@ -97,7 +97,7 @@ def test_agnes_builds_prompt_and_payload() -> None:
     provider = AgnesVideoProvider(AgnesVideoConfig(dry_run=True), env={})
     payload = provider._build_payload(_request())
     assert payload["model"] == "agnes-video-2.5-flash"
-    assert payload["mode"] == "T2V"
+    assert payload["mode"] == "t2v"
     assert "天台" in payload["prompt"]
     assert "neo-noir anime" in payload["prompt"]
     assert "wide" in payload["prompt"]
@@ -133,7 +133,7 @@ def test_agnes_normalizes_video_url_response(monkeypatch: pytest.MonkeyPatch) ->
     response = provider.generate(_request())
     assert response.ok
     assert captured["url"] == "http://gw/v1/videos"
-    assert captured["body"]["mode"] == "T2V"
+    assert captured["body"]["mode"] == "t2v"
     assert captured["body"]["prompt"]
     canonical = json.loads(response.content)
     assert canonical["video_url"] == "https://cdn.example.com/out.mp4"

@@ -7,8 +7,9 @@ Live-verified contract against the New-API / AgnesAI gateway:
 - Endpoint: ``POST {base_url}/videos`` when base ends with ``/v1``
 - Auth: ``Authorization: Bearer <api-key>``
 - Required body fields: ``model``, ``mode``, ``prompt``
-- ``mode=T2V`` is the default (live-verified as accepted); lowercase
-  ``t2v`` / ``text2video`` are rejected on some models as ``invalid mode``
+- ``mode`` is required; gateway validation is flaky (``t2v`` / ``T2V`` /
+  ``text2video`` may each be accepted or rejected intermittently).
+  Default is ``t2v``; override with ``DRAMA_FORGE_AGNES_MODE``.
 - Video models: ``agnes-video-2.5-flash``, ``agnes-video-2.5``, ``agnes-video-v2.0``
 - These models **cannot** be used on ``/images/generations`` or chat
   (gateway returns 400 ``Use /v1/videos``)
@@ -65,7 +66,7 @@ class AgnesVideoConfig:
     base_url: str = AGNES_BASE_URL
     api_key_env: str = AGNES_API_KEY_ENV
     model: str = AGNES_DEFAULT_MODEL
-    mode: str = "T2V"
+    mode: str = "t2v"
     timeout_seconds: float = 180.0
     provider_id: str = "agnes-video"
     capabilities: set[str] = field(default_factory=lambda: set(AGNES_CAPABILITIES))
@@ -488,7 +489,7 @@ def agnes_video_config_from_env(env: Mapping[str, str] | None = None) -> AgnesVi
         base_url=_get("DRAMA_FORGE_AGNES_BASE_URL", AGNES_BASE_URL),
         api_key_env=api_key_env,
         model=_get("DRAMA_FORGE_AGNES_MODEL", AGNES_DEFAULT_MODEL),
-        mode=_get("DRAMA_FORGE_AGNES_MODE", "T2V"),
+        mode=_get("DRAMA_FORGE_AGNES_MODE", "t2v"),
         timeout_seconds=_float("DRAMA_FORGE_AGNES_TIMEOUT", 180.0),
         provider_id=_get("DRAMA_FORGE_AGNES_ID", "agnes-video"),
         dry_run=_bool("DRAMA_FORGE_PROVIDER_DRY_RUN")
