@@ -20,10 +20,37 @@ class ProviderRouter:
     - continuity: prioritize quality + reliability
     - reliability_first: prioritize reliability (with light quality/latency)
     - balanced: weighted mix including latency_score (default)
+
+    Per-capability overrides:
+        policy may include ``by_capability`` mapping capability name to a
+        sub-policy (``provider_id`` / ``strategy``). The sub-policy is merged
+        over the base policy for that capability only, so production can pin
+        DeepSeek to text/eval and SiliconFlow to image without changing the
+        production graph.
     """
 
     def __init__(self, registry: ProviderRegistry) -> None:
         self.registry = registry
+
+    @staticmethod
+    def resolve_policy(capability: str, policy: dict[str, Any] | None) -> dict[str, Any]:
+        """Merge base policy with any per-capability override.
+
+        Args:
+            capability: Capability being routed.
+            policy: Base routing policy, may contain ``by_capability``.
+
+        Returns:
+            Effective policy for this capability (``by_capability`` removed).
+        """
+        base = dict(policy or {})
+        by_capability = base.get("by_capability")
+        if isinstance(by_capability, dict):
+            override = by_capability.get(capability)
+            if isinstance(override, dict):
+                base = {**base, **override}
+        base.pop("by_capability", None)
+        return base
 
     def select(
         self,
@@ -36,7 +63,8 @@ class ProviderRouter:
 
         Args:
             capability: Required capability name.
-            policy: Routing policy with optional strategy and forced provider_id.
+            policy: Routing policy with optional strategy, forced provider_id,
+                and per-capability ``by_capability`` overrides.
             subject: Decision subject label.
             execution_id: Current execution id for the decision record.
 
@@ -46,7 +74,7 @@ class ProviderRouter:
         Raises:
             RuntimeError: If no provider supports the capability.
         """
-        policy = policy or {}
+        policy = self.resolve_policy(capability, policy)
         strategy = str(policy.get("strategy", "balanced"))
         candidates = self.registry.candidates_for(capability)
         if not candidates:

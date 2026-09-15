@@ -32,10 +32,10 @@ htmlcov/
 coverage.xml
 pip-wheel-metadata/
 
-# Generated production outputs
-output/
-artifacts/
-.drama_forge_artifacts/
+# Generated production outputs (root-level only — never src packages)
+/output/
+/artifacts/
+/.drama_forge_artifacts/
 *.mp4
 *.mp3
 *.wav

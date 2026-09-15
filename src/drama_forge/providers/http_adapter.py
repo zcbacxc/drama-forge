@@ -28,8 +28,8 @@ DEFAULT_CAPABILITIES: set[str] = {
     "selection",
 }
 
-# Capability 鈫?endpoint style. Styles:
-# - "chat": POST {base_url}/v1/chat/completions (OpenAI-compatible)
+# Capability → endpoint style. Styles:
+# - "chat": POST {base_url}/{chat_path} (OpenAI-compatible, default v1/chat/completions)
 # - "generate": POST {base_url}/generate (generic JSON contract)
 DEFAULT_CAPABILITY_MAP: dict[str, str] = {
     "text_generation": "chat",
@@ -54,7 +54,10 @@ class HttpProviderConfig:
         timeout_seconds: Per-request socket timeout.
         provider_id: Registry id for this provider instance.
         capabilities: Capabilities this provider claims to support.
-        capability_map: Capability name 鈫?endpoint style (``chat`` / ``generate``).
+        capability_map: Capability name → endpoint style (``chat`` / ``generate``).
+        chat_path: Relative path for chat completions. Default OpenAI style
+            ``v1/chat/completions``. Set ``chat/completions`` for vendors that
+            expose OpenAI-compatible chat without a ``/v1`` prefix (e.g. DeepSeek).
         max_tokens: Maximum completion tokens for chat-style calls.
         temperature: Sampling temperature for chat-style calls.
         dry_run: When True, never open a network connection.
@@ -75,6 +78,7 @@ class HttpProviderConfig:
     capability_map: dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_CAPABILITY_MAP)
     )
+    chat_path: str = "v1/chat/completions"
     max_tokens: int = 1024
     temperature: float = 0.7
     dry_run: bool = False
@@ -137,15 +141,27 @@ class OpenAICompatibleProvider(Provider):
         return (os.environ.get(self.config.api_key_env) or "").strip()
 
     def _endpoint(self, style: str) -> str:
-        """Resolve the request URL for an endpoint style."""
+        """Resolve the request URL for an endpoint style.
+
+        Joining rules for chat:
+        - default ``chat_path=v1/chat/completions`` with base ``https://api.openai.com``
+          → ``https://api.openai.com/v1/chat/completions``
+        - base already ending in ``/v1`` keeps that prefix; a leading ``v1/``
+          in ``chat_path`` is dropped so ``/v1`` is never doubled or lost
+        - DeepSeek official: base ``https://api.deepseek.com`` +
+          ``chat_path=chat/completions`` → ``https://api.deepseek.com/chat/completions``
+        """
         base = self.config.base_url.rstrip("/")
         if style == "generate":
             if base.endswith("/v1"):
                 base = base[: -len("/v1")]
             return f"{base}/generate"
-        if base.endswith("/v1"):
-            return f"{base}/chat/completions"
-        return f"{base}/v1/chat/completions"
+        chat_path = (self.config.chat_path or "v1/chat/completions").strip("/")
+        if base.endswith("/v1") and chat_path.startswith("v1/"):
+            chat_path = chat_path[3:]
+        if not chat_path:
+            chat_path = "chat/completions"
+        return f"{base}/{chat_path}"
 
     def _fallback_response(
         self, request: ProviderRequest, reason: str
@@ -349,13 +365,24 @@ class OpenAICompatibleProvider(Provider):
 
     @staticmethod
     def _extract_content(data: dict[str, Any]) -> tuple[str, str | None]:
-        """Pull text content from OpenAI chat or generic response shapes."""
+        """Pull text content from OpenAI chat or generic response shapes.
+
+        Reasoning models may return empty ``content`` and fill
+        ``reasoning_content``; fall back to that field when present.
+        """
         choices = data.get("choices")
         if isinstance(choices, list) and choices:
             first = choices[0] or {}
             message = first.get("message") or {}
-            if isinstance(message, dict) and message.get("content") is not None:
-                return str(message["content"]), first.get("finish_reason")
+            if isinstance(message, dict):
+                content = message.get("content")
+                if content:
+                    return str(content), first.get("finish_reason")
+                reasoning = message.get("reasoning_content")
+                if reasoning:
+                    return str(reasoning), first.get("finish_reason")
+                if content is not None:
+                    return str(content), first.get("finish_reason")
             if first.get("text") is not None:
                 return str(first["text"]), first.get("finish_reason")
         for key in ("content", "output", "text", "result"):

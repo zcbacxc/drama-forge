@@ -63,6 +63,42 @@ export DRAMA_FORGE_PROVIDER_MODEL=gpt-4o-mini
 export DRAMA_FORGE_PROVIDER_DRY_RUN=1   # offline fallback, no network
 ```
 
+### Production providers (Stage C/F)
+
+DeepSeek is used via the shared **OpenAI-compatible** adapter (no vendor-specific adapter).
+SiliconFlow covers image generation.
+
+```bash
+export DRAMA_FORGE_PROVIDER=production          # or deepseek+siliconflow
+export DRAMA_FORGE_DEEPSEEK_API_KEY=sk-...
+export DRAMA_FORGE_SILICONFLOW_API_KEY=sk-...
+# optional: export DRAMA_FORGE_PROVIDER_DRY_RUN=1  # force offline fallbacks
+```
+
+DeepSeek preset notes (live-verified):
+- chat path is `chat/completions` (not `/v1/chat/completions`)
+- default model is `deepseek-flash` (override with `DRAMA_FORGE_DEEPSEEK_MODEL`)
+
+Pin providers per capability without changing the production graph:
+
+```python
+policy = {
+    "strategy": "balanced",
+    "by_capability": {
+        "text_generation": {"provider_id": "deepseek"},
+        "image_generation": {"provider_id": "siliconflow-image"},
+    },
+}
+result = engine.run(story, provider_policy=policy)
+```
+
+Live smoke (optional, requires keys):
+
+```bash
+export DRAMA_FORGE_LIVE_SMOKE=1
+pytest tests/test_live_provider_smoke.py -v
+```
+
 ## Tests
 
 ```bash

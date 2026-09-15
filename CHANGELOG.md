@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- DeepSeek as an OpenAI-compatible HTTP preset (`chat/completions` path, `deepseek-flash` default model)
+- SiliconFlow image provider adapter (`siliconflow-image`) for `/v1/images/generations`
+- Agnes image via shared images adapter (`agnes-image`, default `agnes-image-2.0-flash`; OpenAI `data[].url` live-verified)
+- Agnes video provider adapter (`agnes-video`) for gateway `POST /v1/videos` (`mode=T2V`; models `agnes-video-2.5-flash` / `2.5` / `v2.0`)
+- Factory families: `deepseek`, `siliconflow`/`sf`, `agnes`/`agnes-video`, `agnes-image`, `production` (= `deepseek+siliconflow`), and `a+b` combinations
+- Per-capability provider routing via `provider_policy["by_capability"]`
+- Configurable `HttpProviderConfig.chat_path` and `reasoning_content` fallback in the shared adapter
+- Offline contract tests and optional live smoke (`DRAMA_FORGE_LIVE_SMOKE=1`)
+
+### Fixed
+- `.gitignore` root-scoped `artifacts/` so `src/drama_forge/artifacts/` is tracked
+- OpenAI-compatible chat endpoint joining when `base_url` already ends with `/v1`
 
 ## [0.1.0] - 2026-09-15
 

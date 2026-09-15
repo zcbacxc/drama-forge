@@ -6,25 +6,29 @@ Environment variables (read via ``os.environ`` unless an ``env`` mapping is
 passed to :func:`build_default_registry`):
 
 - ``DRAMA_FORGE_PROVIDER``
-    Provider family to register. ``mock`` (or unset) registers only local
-    mocks. ``openai_compatible`` (aliases: ``openai``, ``http``) also
-    registers an HTTP adapter.
-- ``DRAMA_FORGE_PROVIDER_BASE_URL``
-    HTTP service root for the OpenAI-compatible adapter
-    (default ``https://api.openai.com``).
-- ``DRAMA_FORGE_PROVIDER_API_KEY``
-    API key value. When set, the adapter uses this variable name by default.
-- ``DRAMA_FORGE_PROVIDER_API_KEY_ENV``
-    Alternate environment variable *name* that holds the API key
-    (default ``DRAMA_FORGE_PROVIDER_API_KEY``). Useful when the secret lives
-    under a vendor-specific name.
-- ``DRAMA_FORGE_PROVIDER_MODEL``
-    Model id sent to the HTTP provider (default ``gpt-4o-mini``).
-- ``DRAMA_FORGE_PROVIDER_TIMEOUT``
-    Per-request timeout in seconds (default ``30``).
-- ``DRAMA_FORGE_PROVIDER_DRY_RUN``
-    When ``1``/``true``/``yes``, the HTTP adapter never opens a network
-    connection and returns deterministic fallback responses.
+    Provider family/families to register. Families may be combined with
+    ``+`` or ``,``:
+
+    - ``mock`` / unset — local mocks only
+    - ``openai_compatible`` (aliases: ``openai``, ``http``) — generic
+      OpenAI-compatible HTTP adapter
+    - ``deepseek`` — DeepSeek via OpenAI-compatible HTTP preset (Stage C)
+    - ``siliconflow`` (alias: ``sf``) — SiliconFlow image provider (Stage F)
+    - ``agnes`` / ``agnes-video`` — Agnes ``/v1/videos`` video provider (Stage F)
+    - ``agnes-image`` — Agnes ``/v1/images/generations`` image provider (Stage F)
+    - ``production`` — alias for ``deepseek+siliconflow``
+
+- ``DRAMA_FORGE_PROVIDER_BASE_URL`` / ``DRAMA_FORGE_PROVIDER_API_KEY`` /
+  ``DRAMA_FORGE_PROVIDER_API_KEY_ENV`` / ``DRAMA_FORGE_PROVIDER_MODEL`` /
+  ``DRAMA_FORGE_PROVIDER_TIMEOUT`` / ``DRAMA_FORGE_PROVIDER_DRY_RUN``
+    Settings for the generic OpenAI-compatible adapter. ``DRAMA_FORGE_PROVIDER_DRY_RUN``
+    is global: when truthy, every HTTP-backed adapter stays offline.
+
+- ``DRAMA_FORGE_DEEPSEEK_*`` — DeepSeek-specific overrides
+  (see :func:`drama_forge.providers.deepseek.deepseek_config_from_env`).
+
+- ``DRAMA_FORGE_SILICONFLOW_*`` — SiliconFlow image-specific overrides
+  (see :func:`drama_forge.providers.siliconflow.siliconflow_config_from_env`).
 
 Mock providers (``mock-primary``, ``mock-economy``, ``mock-evaluator``) are
 always registered when ``enable_mock=True`` so local/dev runs work with zero
@@ -37,12 +41,31 @@ import os
 from collections.abc import Mapping
 
 from drama_forge.providers.adapters import MockEvaluatorProvider, MockProvider
+from drama_forge.providers.agnes_video import (
+    AgnesVideoProvider,
+    agnes_video_config_from_env,
+)
+from drama_forge.providers.deepseek import deepseek_config_from_env
 from drama_forge.providers.http_adapter import HttpProviderConfig, OpenAICompatibleProvider
 from drama_forge.providers.registry import ProviderRegistry
+from drama_forge.providers.siliconflow import (
+    SiliconFlowImageProvider,
+    siliconflow_config_from_env,
+)
 
 _TRUTHY = {"1", "true", "yes", "on"}
 _HTTP_KINDS = {"openai_compatible", "openai", "http", "openai-compatible"}
 _MOCK_KINDS = {"", "mock", "local", "none"}
+_DEEPSEEK_KINDS = {"deepseek", "ds"}
+_SILICONFLOW_KINDS = {"siliconflow", "sf", "siliconflow-image"}
+_AGNES_KINDS = {"agnes", "agnes-video", "agnes_video"}
+_AGNES_IMAGE_KINDS = {"agnes-image", "agnes_image", "agnes-img"}
+_PRODUCTION_ALIASES = {
+    "production",
+    "prod",
+    "deepseek+siliconflow",
+    "siliconflow+deepseek",
+}
 
 
 def _env_get(env: Mapping[str, str], key: str, default: str = "") -> str:
@@ -64,6 +87,27 @@ def _env_float(env: Mapping[str, str], key: str, default: float) -> float:
         return float(raw)
     except ValueError:
         return default
+
+
+def _split_families(kind: str) -> list[str]:
+    """Split a provider family expression into normalized tokens."""
+    raw = kind.strip().lower()
+    if raw in _PRODUCTION_ALIASES:
+        return ["deepseek", "siliconflow"]
+    known_single = (
+        _MOCK_KINDS
+        | _HTTP_KINDS
+        | _DEEPSEEK_KINDS
+        | _SILICONFLOW_KINDS
+        | _AGNES_KINDS
+        | _AGNES_IMAGE_KINDS
+    )
+    if raw in known_single:
+        return [raw] if raw else ["mock"]
+    if "+" in raw or "," in raw:
+        parts = [p.strip() for p in raw.replace(",", "+").split("+") if p.strip()]
+        return parts
+    return [raw]
 
 
 def register_mock_providers(registry: ProviderRegistry) -> None:
@@ -101,6 +145,73 @@ def http_config_from_env(env: Mapping[str, str]) -> HttpProviderConfig:
     )
 
 
+def register_deepseek_provider(
+    registry: ProviderRegistry, env: Mapping[str, str]
+) -> OpenAICompatibleProvider:
+    """Register DeepSeek via the shared OpenAI-compatible HTTP adapter."""
+    config = deepseek_config_from_env(env).to_http_config()
+    provider = OpenAICompatibleProvider(config=config, env=dict(env))
+    registry.register(provider)
+    return provider
+
+
+def register_siliconflow_provider(
+    registry: ProviderRegistry, env: Mapping[str, str]
+) -> SiliconFlowImageProvider:
+    """Register the SiliconFlow image provider from env configuration."""
+    config = siliconflow_config_from_env(env)
+    provider = SiliconFlowImageProvider(config=config, env=dict(env))
+    registry.register(provider)
+    return provider
+
+
+def register_agnes_video_provider(
+    registry: ProviderRegistry, env: Mapping[str, str]
+) -> AgnesVideoProvider:
+    """Register the Agnes /v1/videos provider from env configuration."""
+    config = agnes_video_config_from_env(env)
+    provider = AgnesVideoProvider(config=config, env=dict(env))
+    registry.register(provider)
+    return provider
+
+
+def register_agnes_image_provider(
+    registry: ProviderRegistry, env: Mapping[str, str]
+) -> SiliconFlowImageProvider:
+    """Register Agnes image generation via the shared images HTTP adapter.
+
+    Agnes exposes OpenAI-compatible ``POST /v1/images/generations`` for models
+    such as ``agnes-image-2.0-flash`` / ``2.1-flash`` / ``2.5-flash``. Reuses
+    :class:`SiliconFlowImageProvider` (same endpoint contract + response
+    normalization for both SiliconFlow and OpenAI shapes).
+    """
+    from drama_forge.providers.siliconflow import SiliconFlowConfig
+
+    def _get(key: str, default: str = "") -> str:
+        value = env.get(key)
+        if value is None:
+            return default
+        return str(value).strip()
+
+    def _bool(key: str) -> bool:
+        return _get(key).lower() in _TRUTHY
+
+    api_key_env = _get("DRAMA_FORGE_AGNES_API_KEY_ENV") or "DRAMA_FORGE_AGNES_API_KEY"
+    config = SiliconFlowConfig(
+        base_url=_get("DRAMA_FORGE_AGNES_BASE_URL", "https://api.example.com/v1"),
+        api_key_env=api_key_env,
+        image_model=_get("DRAMA_FORGE_AGNES_IMAGE_MODEL", "agnes-image-2.0-flash"),
+        image_size=_get("DRAMA_FORGE_AGNES_IMAGE_SIZE", "1024x1024"),
+        provider_id=_get("DRAMA_FORGE_AGNES_IMAGE_ID", "agnes-image"),
+        dry_run=_bool("DRAMA_FORGE_PROVIDER_DRY_RUN")
+        or _bool("DRAMA_FORGE_AGNES_DRY_RUN")
+        or _bool("DRAMA_FORGE_AGNES_IMAGE_DRY_RUN"),
+    )
+    provider = SiliconFlowImageProvider(config=config, env=dict(env))
+    registry.register(provider)
+    return provider
+
+
 def build_default_registry(
     env: dict[str, str] | None = None,
     enable_mock: bool = True,
@@ -115,7 +226,7 @@ def build_default_registry(
             HTTP settings when the env requests an HTTP provider.
 
     Returns:
-        A registry with mocks (optional) and, when configured, an HTTP provider.
+        A registry with mocks (optional) and any requested real providers.
     """
     resolved_env: Mapping[str, str] = os.environ if env is None else env
     registry = ProviderRegistry()
@@ -123,11 +234,26 @@ def build_default_registry(
         register_mock_providers(registry)
 
     kind = _env_get(resolved_env, "DRAMA_FORGE_PROVIDER").lower()
-    if kind in _MOCK_KINDS:
-        return registry
-    if kind in _HTTP_KINDS:
-        config = http_config or http_config_from_env(resolved_env)
-        registry.register(OpenAICompatibleProvider(config=config, env=dict(resolved_env)))
-        return registry
-    # Unknown kind: keep mocks (if any) rather than failing hard.
+    for family in _split_families(kind):
+        if family in _MOCK_KINDS:
+            continue
+        if family in _HTTP_KINDS:
+            config = http_config or http_config_from_env(resolved_env)
+            registry.register(
+                OpenAICompatibleProvider(config=config, env=dict(resolved_env))
+            )
+            continue
+        if family in _DEEPSEEK_KINDS:
+            register_deepseek_provider(registry, resolved_env)
+            continue
+        if family in _SILICONFLOW_KINDS:
+            register_siliconflow_provider(registry, resolved_env)
+            continue
+        if family in _AGNES_KINDS:
+            register_agnes_video_provider(registry, resolved_env)
+            continue
+        if family in _AGNES_IMAGE_KINDS:
+            register_agnes_image_provider(registry, resolved_env)
+            continue
+        # Unknown family token: keep previously registered providers.
     return registry
