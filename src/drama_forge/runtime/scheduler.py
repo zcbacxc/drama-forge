@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Production graph scheduler and worker loop."""
 
 from __future__ import annotations
@@ -194,7 +196,7 @@ class Scheduler:
 
         try:
             result = self.executor.execute(node, context)
-        except Exception as exc:  # noqa: BLE001 — worker boundary
+        except Exception as exc:  # noqa: BLE001 鈥?worker boundary
             result = TaskResult(node_id=node.id, success=False, error=str(exc))
 
         if result.success:

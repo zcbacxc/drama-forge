@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Production model: manifest, spec, graph nodes/edges, fingerprints."""
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from drama_forge.domain.common import (
 
 @dataclass(slots=True)
 class CanonicalGenerationSpec:
-    """What to produce at a node — provider-agnostic generation contract."""
+    """What to produce at a node 鈥?provider-agnostic generation contract."""
 
     node_id: str
     capability: str

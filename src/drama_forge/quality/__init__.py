@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Quality runtime package."""
 
 from drama_forge.quality.evaluators import evaluate_candidates

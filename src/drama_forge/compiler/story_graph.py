@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Build Story Graph and Production Graph from a Story."""
 
 from __future__ import annotations
@@ -299,6 +301,34 @@ def build_production_graph(
     continuity_node.generation_spec.node_id = continuity_node.id
     graph.add_edge(GraphEdge.create(timeline_node.id, continuity_node.id))
     graph.add_node(continuity_node)
+
+    # Dialogue audio nodes (Stage F): optional generate_dialogue_audio after select
+    from drama_forge.capabilities.audio import plan_dialogue_audio_nodes
+
+    audio_nodes = plan_dialogue_audio_nodes(story, graph, assets=assets)
+    for audio_node in audio_nodes:
+        graph.add_edge(GraphEdge.create(audio_node.id, timeline_node.id))
+
+    # Style-continuity edges: character refs already flow into scene/shot nodes.
+    # Record an explicit style_continuity kind between scene ref and shot select
+    # for traceability without introducing new scheduling constraints.
+    for episode in story.episodes:
+        for scene in episode.scenes:
+            scene_node = scene_ref_nodes.get(scene.id)
+            if scene_node is None:
+                continue
+            for shot in scene.shots:
+                select_name = f"shot_select:{scene.index}.{shot.index}"
+                select_node = next(
+                    (n for n in graph.nodes.values() if n.name == select_name),
+                    None,
+                )
+                if select_node is not None:
+                    # kind is informational; dependencies already exist via generate chain
+                    edge = GraphEdge.create(
+                        scene_node.id, select_node.id, kind="style_continuity"
+                    )
+                    graph.add_edge(edge)
 
     graph.recompute_all_fingerprints()
     return GraphPlanResult(graph=graph, assets=assets)

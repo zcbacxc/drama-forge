@@ -1,4 +1,6 @@
-"""CLI entry: compile / plan / run / status / inspect / validate / repair."""
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""CLI entry: compile / plan / run / status / inspect / validate / repair / version."""
 
 from __future__ import annotations
 
@@ -9,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from drama_forge.engine import Engine
+from drama_forge.version import __version__
 
 
 def _print(data: Any) -> None:
@@ -26,6 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--artifact-root",
         default=None,
         help="Artifact store root directory",
+    )
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="Optional SQLite database path for production history",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -59,6 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_repair.add_argument("story", type=Path)
 
     sub.add_parser("doctor", help="Self-check environment")
+    sub.add_parser("version", help="Print package version")
     return parser
 
 
@@ -73,14 +82,24 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
-    engine = Engine(artifact_root=args.artifact_root)
+
+    if args.command == "version":
+        _print({"version": __version__})
+        return 0
+
+    engine = Engine(artifact_root=args.artifact_root, db_path=args.db)
 
     if args.command == "doctor":
         _print(
             {
                 "ok": True,
+                "version": __version__,
                 "providers": [p.id for p in engine.registry.all()],
                 "artifact_root": str(engine.artifact_store.root),
+                "persistence": {
+                    "enabled": engine.db is not None,
+                    "path": args.db,
+                },
             }
         )
         return 0

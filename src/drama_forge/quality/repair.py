@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Repair planner: preflight and post-generation local repairs."""
 
 from __future__ import annotations

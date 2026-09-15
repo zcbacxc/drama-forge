@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Story compiler package."""
 
 from drama_forge.compiler.parser import compile_story_from_dict, parse_markdown_story

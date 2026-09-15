@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drama-forge"
-version = "0.1.0"
+version = "0.2.0"
 description = "Core Engine for productized AI drama production"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "早川不爱吃香菜" }]
-license = { text = "Proprietary" }
+authors = [{ name = "zcbacxc", email = "zcbacxc@users.noreply.github.com" }]
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 dependencies = []
 
 [project.optional-dependencies]

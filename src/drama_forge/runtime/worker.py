@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Node worker that executes production nodes via providers + artifacts."""
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ class ProductionWorker:
             "generate_shot_candidates": self._generate_shot_candidates,
             "evaluate_shot_candidates": self._evaluate_candidates,
             "select_shot_candidate": self._select_candidate,
+            "generate_dialogue_audio": self._generate_dialogue_audio,
             "assemble_timeline": self._assemble_timeline,
             "validate_continuity": self._validate_continuity,
         }
@@ -398,85 +401,190 @@ class ProductionWorker:
             outputs={"selected_candidate": selected.id},
         )
 
+    def _generate_dialogue_audio(
+        self,
+        node: GraphNode,
+        context: ExecutionContext,
+    ) -> TaskResult:
+        """Generate dialogue audio for a shot after candidate selection."""
+        if node.generation_spec is None:
+            return TaskResult(node_id=node.id, success=False, error="missing generation_spec")
+        capability = node.generation_spec.capability or "audio_generation"
+        provider, _decision = self._route(node, context, capability)
+        request = ProviderRequest(
+            capability=capability,
+            generation_spec=node.generation_spec,
+            inputs={
+                "asset_ids": node.input_asset_ids,
+                **dict(node.generation_spec.audio_requirements),
+            },
+            policy=dict(context.config.get("provider_policy", {})),
+            candidate_index=0,
+        )
+        response = provider.generate(request)
+        if not response.ok:
+            return TaskResult(node_id=node.id, success=False, error=response.error)
+
+        artifact = Artifact.create(
+            artifact_type=ArtifactType.AUDIO,
+            content_reference="",
+            source_node=node.id,
+            asset_id=node.output_asset_id,
+            technical_metadata=dict(response.technical_metadata),
+            provider_metadata=dict(response.provider_metadata),
+            generation_metadata=dict(response.generation_metadata),
+        )
+        requirements = dict(node.generation_spec.audio_requirements)
+        artifact.generation_metadata["duration_seconds"] = float(
+            requirements.get("duration_seconds", 2.0) or 2.0
+        )
+        artifact.generation_metadata["dialogue_text"] = str(
+            requirements.get("text", "")
+        )
+        artifact.provenance = self._provenance(
+            node,
+            context,
+            provider_id=provider.id,
+            model_id=str(response.provider_metadata.get("model", provider.id)),
+        )
+        self.artifact_store.put(artifact, content=response.content)
+        context.artifacts[artifact.id] = artifact
+        validation = validate_artifact(artifact)
+        context.quality_results.append(validation)
+        if validation.gate.value == "BLOCK":
+            return TaskResult(
+                node_id=node.id,
+                success=False,
+                error="dialogue audio failed technical validation",
+                artifact_ids=[artifact.id],
+            )
+        return TaskResult(
+            node_id=node.id,
+            success=True,
+            artifact_ids=[artifact.id],
+            output_fingerprints={"artifact": artifact.fingerprint()},
+            outputs={
+                "digest": response.generation_metadata.get("digest"),
+                "duration_seconds": artifact.generation_metadata["duration_seconds"],
+            },
+        )
+
     def _assemble_timeline(
         self,
         node: GraphNode,
         context: ExecutionContext,
     ) -> TaskResult:
-        """Assemble canonical timeline from selected shot artifacts."""
-        segments: list[dict[str, Any]] = []
-        selected_nodes = [
+        """Assemble canonical timeline from selected shot artifacts.
+
+        Uses TimelineRenderer to resolve segment order, compute start/end
+        times, and align dialogue audio to its host video segment.
+        """
+        from drama_forge.timeline.renderer import CanonicalTimelineBuilder, TimelineRenderer
+
+        select_nodes = [
             n
             for n in context.graph.nodes.values()
             if n.action == "select_shot_candidate"
         ]
-        # preserve graph insertion order
-        for select_node in selected_nodes:
-            candidate_id = (
-                select_node.candidate_ids[0] if select_node.candidate_ids else None
-            )
-            candidate = context.candidates.get(candidate_id) if candidate_id else None
-            if candidate is None:
-                continue
-            artifact = candidate.artifact
-            duration = float(
-                artifact.generation_metadata.get("duration_seconds", 3.0)
-                or artifact.technical_metadata.get("duration_seconds", 3.0)
-                or 3.0
-            )
-            # try from node generation spec via upstream
-            segments.append(
-                {
-                    "node_id": select_node.id,
-                    "artifact_id": artifact.id,
-                    "candidate_id": candidate.id,
-                    "duration_seconds": duration,
-                    "media": artifact.artifact_type.value,
-                    "digest": artifact.generation_metadata.get("digest"),
-                }
-            )
+        audio_nodes = [
+            n
+            for n in context.graph.nodes.values()
+            if n.action == "generate_dialogue_audio"
+        ]
 
-        if not segments:
+        builder = CanonicalTimelineBuilder()
+        timeline = builder.build_from_execution(
+            select_nodes=select_nodes,
+            audio_nodes=audio_nodes,
+            candidates=context.candidates,
+            artifacts=context.artifacts,
+            name=node.name,
+        )
+
+        if not timeline.video_segments():
             return TaskResult(
                 node_id=node.id,
                 success=False,
                 error="no selected shot segments for timeline",
             )
 
+        rendered = TimelineRenderer().render(timeline)
+
+        # Keep payload shape compatible with engine.update_timeline_shot while
+        # also exposing resolved times and the audio track.
+        video_segments = []
+        for segment in timeline.video_segments():
+            video_segments.append(
+                {
+                    "node_id": segment.node_id or segment.node_name,
+                    "node_name": segment.node_name,
+                    "artifact_id": segment.artifact_id,
+                    "candidate_id": segment.candidate_id,
+                    "duration_seconds": segment.duration_seconds,
+                    "start_seconds": segment.start_seconds,
+                    "end_seconds": segment.end_seconds,
+                    "media": segment.media,
+                    "digest": segment.digest,
+                    "replaced": segment.replaced,
+                }
+            )
+        audio_segments = [
+            s.to_dict() for s in timeline.audio_segments()
+        ]
+
         timeline_payload = {
-            "tracks": {"video": segments},
-            "markers": [],
-            "metadata": {"segment_count": len(segments)},
+            "tracks": {
+                "video": video_segments,
+                "audio": audio_segments,
+            },
+            "dialogues": [d.to_dict() for d in timeline.dialogues],
+            "transitions": [t.to_dict() for t in timeline.transitions],
+            "markers": [m.to_dict() for m in timeline.markers],
+            "segment_order": list(rendered.segment_order),
+            "audio_alignment": list(rendered.audio_alignment),
+            "metadata": {
+                "segment_count": len(video_segments),
+                "audio_segment_count": len(audio_segments),
+                "total_duration": rendered.total_duration,
+            },
         }
         timeline_artifact = Artifact.create(
             artifact_type=ArtifactType.TIMELINE,
             content_reference="",
             source_node=node.id,
             asset_id=node.output_asset_id,
-            technical_metadata={"segment_count": len(segments)},
+            technical_metadata={
+                "segment_count": len(video_segments),
+                "total_duration": rendered.total_duration,
+            },
             generation_metadata=timeline_payload,
         )
         timeline_artifact.provenance = self._provenance(
             node,
             context,
             provider_id="internal-timeline",
-            model_id="timeline-assembler",
+            model_id="timeline-renderer",
             candidate_id=None,
         )
         timeline_artifact.provenance.inputs["segments"] = json.dumps(
-            [s["artifact_id"] for s in segments]
+            [s["artifact_id"] for s in video_segments]
         )
         self.artifact_store.put(
-            timeline_artifact, content=json.dumps(timeline_payload, indent=2)
+            timeline_artifact,
+            content=timeline.to_json(),
         )
         context.artifacts[timeline_artifact.id] = timeline_artifact
         context.config["canonical_timeline_id"] = timeline_artifact.id
+        context.config["canonical_timeline"] = timeline
 
         return TaskResult(
             node_id=node.id,
             success=True,
             artifact_ids=[timeline_artifact.id],
-            outputs={"timeline": timeline_payload},
+            outputs={
+                "timeline": timeline_payload,
+                "total_duration": rendered.total_duration,
+            },
         )
 
     def _validate_continuity(

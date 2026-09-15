@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Strategy-based provider router with decision records."""
 
 from __future__ import annotations
@@ -16,7 +18,8 @@ class ProviderRouter:
     - quality_first: prioritize quality_score
     - cost_first: prioritize cost_score (higher = cheaper/better)
     - continuity: prioritize quality + reliability
-    - balanced: weighted mix (default)
+    - reliability_first: prioritize reliability (with light quality/latency)
+    - balanced: weighted mix including latency_score (default)
     """
 
     def __init__(self, registry: ProviderRegistry) -> None:
@@ -90,7 +93,13 @@ class ProviderRouter:
             return provider.cost_score
         if strategy == "continuity":
             return 0.7 * provider.quality_score + 0.3 * provider.reliability
-        # balanced
+        if strategy == "reliability_first":
+            return (
+                0.25 * provider.quality_score
+                + 0.6 * provider.reliability
+                + 0.15 * provider.latency_score
+            )
+        # balanced (latency-aware)
         return (
             0.4 * provider.quality_score
             + 0.2 * provider.reliability

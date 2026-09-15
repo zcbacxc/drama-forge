@@ -19,7 +19,7 @@ from drama_forge.domain.common import ExecutionStatus, IssueType, RepairKind
 from drama_forge.domain.production import ProductionManifest
 from drama_forge.domain.quality import Issue, QualityResult, RepairPlan, ValidationReport
 from drama_forge.domain.story import Story
-from drama_forge.providers.adapters import MockEvaluatorProvider, MockProvider
+from drama_forge.providers.factory import build_default_registry
 from drama_forge.providers.registry import ProviderRegistry
 from drama_forge.providers.router import ProviderRouter
 from drama_forge.quality.repair import RepairPlanner
@@ -70,25 +70,59 @@ class Engine:
         self,
         artifact_root: str | Path | None = None,
         enable_mock_providers: bool = True,
+        db_path: str | Path | None = None,
+        env: dict[str, str] | None = None,
+        registry: ProviderRegistry | None = None,
     ) -> None:
-        self.registry = ProviderRegistry()
-        if enable_mock_providers:
-            self.registry.register(MockProvider("mock-primary", quality_score=0.9))
-            self.registry.register(
-                MockProvider(
-                    "mock-economy",
-                    quality_score=0.6,
-                    cost_score=0.95,
-                    latency_score=0.95,
-                )
-            )
-            self.registry.register(MockEvaluatorProvider())
+        """Create an Engine facade.
+
+        Args:
+            artifact_root: Filesystem root for artifact media bytes.
+            enable_mock_providers: Register local mock providers.
+            db_path: Optional SQLite path for durable production history.
+            env: Optional environment mapping for provider factory.
+            registry: Optional pre-built provider registry (overrides factory).
+        """
+        self.registry = registry or build_default_registry(
+            env=env, enable_mock=enable_mock_providers
+        )
         self.router = ProviderRouter(self.registry)
         self.artifact_store = ArtifactStore(artifact_root)
         self.checkpoint_store = CheckpointStore()
         self.repair_planner = RepairPlanner()
         self._executions: dict[str, RunResult] = {}
         self.fingerprint_cache: dict[str, dict[str, Any]] = {}
+        self.db = None
+        self._repos: dict[str, Any] = {}
+        if db_path is not None:
+            self._init_persistence(db_path)
+
+    def _init_persistence(self, db_path: str | Path) -> None:
+        """Open SQLite database and prepare repositories."""
+        from drama_forge.persistence import (
+            ArtifactRepository,
+            CheckpointRepository,
+            Database,
+            DecisionRepository,
+            ExecutionRepository,
+            GraphRepository,
+            QualityRepository,
+            RepairRepository,
+            StoryRepository,
+        )
+
+        self.db = Database(str(db_path))
+        self.db.migrate()
+        self._repos = {
+            "story": StoryRepository(self.db),
+            "graph": GraphRepository(self.db),
+            "execution": ExecutionRepository(self.db),
+            "checkpoint": CheckpointRepository(self.db),
+            "artifact": ArtifactRepository(self.db),
+            "decision": DecisionRepository(self.db),
+            "quality": QualityRepository(self.db),
+            "repair": RepairRepository(self.db),
+        }
 
     def compile(self, source: str | Path | dict[str, Any]) -> Story:
         """Compile a story source into a Story domain object."""
@@ -160,6 +194,8 @@ class Engine:
         policy = provider_policy or dict(manifest.provider_policy)
 
         if inject_continuity_issue:
+            from drama_forge.providers.adapters import MockProvider
+
             # force low continuity scores on shot evaluation path
             policy = {**policy, "strategy": "quality_first"}
             # bias primary mock so first candidate digests produce low continuity
@@ -257,7 +293,124 @@ class Engine:
             report=report,
         )
         self._executions[context.execution_id] = result
+        self._persist_run_result(story, result)
         return result
+
+    def _persist_run_result(self, story: Story, result: RunResult) -> None:
+        """Write production history into SQLite when persistence is enabled."""
+        if not self._repos:
+            return
+        context = result.context
+        graph = result.graph
+        self._repos["story"].save(
+            story.id,
+            story.title,
+            story.version,
+            {
+                "title": story.title,
+                "fingerprint": story.fingerprint(),
+                "character_count": len(story.characters),
+                "shot_count": len(story.all_shots()),
+            },
+            fingerprint=story.fingerprint(),
+        )
+        self._repos["graph"].save_graph(
+            graph.id,
+            graph.name,
+            graph.version,
+            {
+                nid: {
+                    "name": n.name,
+                    "action": n.action,
+                    "status": n.status.value,
+                    "fingerprint": n.fingerprint,
+                }
+                for nid, n in graph.nodes.items()
+            },
+            [
+                {"source": e.source_id, "target": e.target_id, "kind": e.kind}
+                for e in graph.edges
+            ],
+            fingerprint=graph.fingerprint(),
+            policy=graph.policy,
+        )
+        self._repos["execution"].save(
+            context.execution_id,
+            graph.id,
+            result.status.value,
+            graph_fingerprint=graph.fingerprint(),
+            input_fingerprint=str(context.config.get("input_fingerprint", "")),
+            config={
+                "provider_policy": context.config.get("provider_policy", {}),
+            },
+            result_summary={
+                "artifact_count": len(context.artifacts),
+                "decision_count": len(context.decision_records),
+                "gate": result.report.overall_gate.value,
+                "timeline_artifact_id": (
+                    result.timeline_artifact.id if result.timeline_artifact else None
+                ),
+            },
+        )
+        cp = self.checkpoint_store.load(context.execution_id)
+        if cp:
+            self._repos["checkpoint"].save(cp)
+        for artifact in context.artifacts.values():
+            if isinstance(artifact, Artifact):
+                self._repos["artifact"].save(
+                    artifact.id,
+                    artifact.artifact_type.value,
+                    artifact.content_reference,
+                    fingerprint=artifact.fingerprint(),
+                    source_node=artifact.source_node,
+                    asset_id=artifact.asset_id,
+                    schema_version=artifact.schema_version,
+                    technical_metadata=artifact.technical_metadata,
+                    provider_metadata=artifact.provider_metadata,
+                    generation_metadata=artifact.generation_metadata,
+                    quality_state=artifact.quality_state.value,
+                    provenance=artifact.provenance.to_dict(),
+                    created_at=artifact.created_at,
+                )
+        for decision in context.decision_records:
+            self._repos["decision"].save(
+                decision.id,
+                decision.decision_type,
+                decision.subject,
+                candidates=list(decision.candidates),
+                policy=decision.policy,
+                selected=decision.selected,
+                reason=decision.reason,
+                evidence=decision.evidence,
+                execution_id=decision.execution_id,
+                created_at=decision.created_at,
+            )
+        seen_qr: set[str] = set()
+        for qr in list(context.quality_results) + list(result.report.results):
+            if not isinstance(qr, QualityResult) or qr.id in seen_qr:
+                continue
+            seen_qr.add(qr.id)
+            self._repos["quality"].save_result(
+                qr.id,
+                qr.subject_id,
+                qr.gate.value,
+                scores=qr.scores,
+                evidence=qr.evidence,
+                issues=[
+                    {
+                        "id": i.id,
+                        "issue_type": i.issue_type.value,
+                        "severity": i.severity.value,
+                        "node_id": i.node_id,
+                        "asset_id": i.asset_id,
+                        "message": i.message,
+                        "evidence": i.evidence,
+                        "suggested_scope": i.suggested_scope,
+                    }
+                    for i in qr.issues
+                ],
+                created_at=qr.created_at,
+            )
 
     def status(self, execution_id: str) -> dict[str, Any] | None:
         """Return execution status summary."""
@@ -368,7 +521,7 @@ class Engine:
                 "provider_policy": policy,
             },
         )
-        # Rehydrate assets from prior if needed — assets live on graph specs
+        # Rehydrate assets from prior if needed 鈥?assets live on graph specs
         worker = ProductionWorker(
             router=self.router,
             artifact_store=self.artifact_store,

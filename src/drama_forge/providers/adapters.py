@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mock providers for local end-to-end validation (no external APIs)."""
 
 from __future__ import annotations
