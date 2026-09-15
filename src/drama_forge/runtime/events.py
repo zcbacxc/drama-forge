@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -25,26 +26,30 @@ class ExecutionEvent:
 
 
 class EventBus:
-    """Simple in-memory event log for an execution."""
+    """Thread-safe in-memory event log for an execution."""
 
     def __init__(self) -> None:
         self._events: list[ExecutionEvent] = []
         self._next_id = 1
+        self._lock = threading.Lock()
 
     def emit(self, event_type: str, subject: str, **payload: Any) -> ExecutionEvent:
         """Append and return a new event."""
-        event = ExecutionEvent(
-            id=self._next_id,
-            event_type=event_type,
-            subject=subject,
-            payload=payload,
-        )
-        self._next_id += 1
-        self._events.append(event)
-        return event
+        with self._lock:
+            event = ExecutionEvent(
+                id=self._next_id,
+                event_type=event_type,
+                subject=subject,
+                payload=payload,
+            )
+            self._next_id += 1
+            self._events.append(event)
+            return event
 
     def list(self, event_type: str | None = None) -> list[ExecutionEvent]:
         """List events optionally filtered by type."""
+        with self._lock:
+            snapshot = list(self._events)
         if event_type is None:
-            return list(self._events)
-        return [e for e in self._events if e.event_type == event_type]
+            return snapshot
+        return [e for e in snapshot if e.event_type == event_type]

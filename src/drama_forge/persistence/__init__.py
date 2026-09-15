@@ -5,10 +5,13 @@
 from drama_forge.persistence.db import Database, dumps, loads, row_to_dict
 from drama_forge.persistence.repositories import (
     ArtifactRepository,
+    CandidateRepository,
     CheckpointRepository,
     DecisionRepository,
+    EventRepository,
     ExecutionRepository,
     GraphRepository,
+    KnowledgeRepository,
     QualityRepository,
     RepairRepository,
     StoryRepository,
@@ -29,4 +32,7 @@ __all__ = [
     "DecisionRepository",
     "QualityRepository",
     "RepairRepository",
+    "KnowledgeRepository",
+    "CandidateRepository",
+    "EventRepository",
 ]

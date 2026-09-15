@@ -18,6 +18,10 @@ from drama_forge.compiler.story_graph import (
 )
 from drama_forge.domain.asset import Artifact, Candidate
 from drama_forge.domain.common import ExecutionStatus, IssueType, RepairKind
+from drama_forge.domain.knowledge import (
+    ProductionKnowledge,
+    harvest_knowledge_from_story,
+)
 from drama_forge.domain.production import ProductionManifest
 from drama_forge.domain.quality import Issue, QualityResult, RepairPlan, ValidationReport
 from drama_forge.domain.story import Story
@@ -46,6 +50,7 @@ class RunResult:
     context: ExecutionContext
     timeline_artifact: Artifact | None = None
     report: ValidationReport = field(default_factory=ValidationReport)
+    knowledge: ProductionKnowledge | None = None
 
     @property
     def events(self) -> list[Any]:
@@ -103,11 +108,14 @@ class Engine:
         """Open SQLite database and prepare repositories."""
         from drama_forge.persistence import (
             ArtifactRepository,
+            CandidateRepository,
             CheckpointRepository,
             Database,
             DecisionRepository,
+            EventRepository,
             ExecutionRepository,
             GraphRepository,
+            KnowledgeRepository,
             QualityRepository,
             RepairRepository,
             StoryRepository,
@@ -124,6 +132,9 @@ class Engine:
             "decision": DecisionRepository(self.db),
             "quality": QualityRepository(self.db),
             "repair": RepairRepository(self.db),
+            "knowledge": KnowledgeRepository(self.db),
+            "candidate": CandidateRepository(self.db),
+            "event": EventRepository(self.db),
         }
 
     def compile(self, source: str | Path | dict[str, Any]) -> Story:
@@ -136,12 +147,15 @@ class Engine:
         self,
         story: Story,
         candidate_count: int = 2,
+        knowledge: ProductionKnowledge | None = None,
     ) -> tuple[ProductionManifest, GraphPlanResult, Any]:
         """Build production spec, manifest, and production graph.
 
         Args:
             story: Compiled story.
             candidate_count: Candidates per shot generation node.
+            knowledge: Optional Production Knowledge merged into continuity
+                constraints on generation specs.
 
         Returns:
             Tuple of (manifest, graph plan, story graph).
@@ -149,8 +163,14 @@ class Engine:
         story_graph = build_story_graph(story)
         spec = build_production_spec(story)
         plan = build_production_graph(
-            story, candidate_count=candidate_count
+            story, candidate_count=candidate_count, knowledge=knowledge
         )
+        quality_policy: dict[str, Any] = {
+            "enforce_continuity": True,
+            "preflight": True,
+        }
+        if knowledge is not None:
+            quality_policy["knowledge_fingerprint"] = knowledge.fingerprint
         manifest = ProductionManifest.create(
             story_id=story.id,
             story_version=story.version,
@@ -158,10 +178,7 @@ class Engine:
             graph_id=plan.graph.id,
             provider_policy={"strategy": "balanced"},
             selection_policy={"strategy": "highest_total_score"},
-            quality_policy={
-                "enforce_continuity": True,
-                "preflight": True,
-            },
+            quality_policy=quality_policy,
             asset_versions={aid: a.version for aid, a in plan.assets.items()},
         )
         errors = manifest.validate()
@@ -176,6 +193,9 @@ class Engine:
         provider_policy: dict[str, Any] | None = None,
         resume_execution_id: str | None = None,
         inject_continuity_issue: bool = False,
+        knowledge: ProductionKnowledge | None = None,
+        max_workers: int = 1,
+        cancellation: Any | None = None,
     ) -> RunResult:
         """Run the full production chain for a story.
 
@@ -185,12 +205,16 @@ class Engine:
             provider_policy: Optional routing policy override.
             resume_execution_id: Resume from a previous execution checkpoint.
             inject_continuity_issue: Force a continuity failure for repair demos.
+            knowledge: Optional Production Knowledge injected into continuity
+                constraints of this run (not the story content itself).
+            max_workers: Parallel workers for dependency-ready nodes.
+            cancellation: Optional CancellationToken for cooperative cancel.
 
         Returns:
-            RunResult with status, artifacts, timeline, and quality report.
+            RunResult with status, artifacts, timeline, quality report, knowledge.
         """
         manifest, plan, _story_graph = self.plan(
-            story, candidate_count=candidate_count
+            story, candidate_count=candidate_count, knowledge=knowledge
         )
         graph = plan.graph
         policy = provider_policy or dict(manifest.provider_policy)
@@ -243,7 +267,10 @@ class Engine:
             checkpoint_store=self.checkpoint_store,
             max_attempts=2,
             fingerprint_cache=self.fingerprint_cache,
+            max_workers=max_workers,
         )
+        if cancellation is not None:
+            context.cancellation = cancellation
         status = scheduler.run(graph, context, resume_from=resume_checkpoint)
 
         timeline_id = context.config.get("canonical_timeline_id")
@@ -293,10 +320,73 @@ class Engine:
             context=context,
             timeline_artifact=timeline_artifact,
             report=report,
+            knowledge=self.harvest_knowledge(story, result=None, context=context, report=report),
         )
         self._executions[context.execution_id] = result
         self._persist_run_result(story, result)
         return result
+
+    def harvest_knowledge(
+        self,
+        story: Story,
+        result: RunResult | None = None,
+        *,
+        context: ExecutionContext | None = None,
+        report: ValidationReport | None = None,
+        previous: ProductionKnowledge | None = None,
+    ) -> ProductionKnowledge:
+        """Distill Production Knowledge from a completed (or partial) run.
+
+        Args:
+            story: Story that was produced.
+            result: Optional RunResult (uses its context/report when present).
+            context: Explicit execution context when result is None.
+            report: Explicit validation report when result is None.
+            previous: Optional prior knowledge bundle to merge into.
+
+        Returns:
+            Harvested (and optionally merged) ProductionKnowledge.
+        """
+        ctx = context or (result.context if result else None)
+        rep = report or (result.report if result else None)
+        selected: list[Any] = []
+        decisions: list[Any] = []
+        quality: list[Any] = []
+        source_refs: list[str] = []
+        if ctx is not None:
+            selected = [
+                c
+                for c in ctx.candidates.values()
+                if isinstance(c, Candidate) and c.selected
+            ]
+            decisions = list(ctx.decision_records)
+            quality = list(ctx.quality_results)
+            if ctx.execution_id:
+                source_refs.append(ctx.execution_id)
+            for artifact in list(ctx.artifacts.values())[:20]:
+                aid = getattr(artifact, "id", None)
+                if aid:
+                    source_refs.append(str(aid))
+        if rep is not None:
+            quality.extend(list(rep.results))
+
+        knowledge = harvest_knowledge_from_story(
+            story,
+            selected_candidates=selected,
+            decision_records=decisions,
+            quality_results=quality,
+            source_refs=source_refs,
+        )
+        if previous is not None:
+            knowledge = previous.merge(knowledge)
+        if self._repos:
+            try:
+                repo = self._repos.get("knowledge")
+                if repo is not None:
+                    repo.save(knowledge)
+            except Exception:  # noqa: BLE001 - knowledge persist is best-effort
+                pass
+        return knowledge
 
     def _persist_run_result(self, story: Story, result: RunResult) -> None:
         """Write production history into SQLite when persistence is enabled."""
@@ -387,6 +477,32 @@ class Engine:
                 execution_id=decision.execution_id,
                 created_at=decision.created_at,
             )
+        cand_repo = self._repos.get("candidate")
+        if cand_repo is not None:
+            for candidate in context.candidates.values():
+                if not isinstance(candidate, Candidate):
+                    continue
+                artifact = getattr(candidate, "artifact", None)
+                cand_repo.save(
+                    candidate.id,
+                    candidate.node_id,
+                    artifact_id=getattr(artifact, "id", "") or "",
+                    selected=bool(getattr(candidate, "selected", False)),
+                    score=float(getattr(candidate, "score", 0.0) or 0.0),
+                    quality_state=str(getattr(candidate, "quality_state", "UNEVALUATED")),
+                    execution_id=context.execution_id,
+                    payload={"artifact_type": str(getattr(artifact, "artifact_type", ""))},
+                )
+        event_repo = self._repos.get("event")
+        if event_repo is not None:
+            for event in context.events.list():
+                event_repo.append(
+                    context.execution_id,
+                    event.event_type,
+                    subject=event.subject,
+                    payload=dict(event.payload),
+                    created_at=event.created_at,
+                )
         seen_qr: set[str] = set()
         for qr in list(context.quality_results) + list(result.report.results):
             if not isinstance(qr, QualityResult) or qr.id in seen_qr:

@@ -95,6 +95,7 @@ def build_production_graph(
     name: str | None = None,
     style_constraints: dict[str, Any] | None = None,
     candidate_count: int = 2,
+    knowledge: Any | None = None,
 ) -> GraphPlanResult:
     """Plan a production graph from a story.
 
@@ -107,13 +108,23 @@ def build_production_graph(
         name: Optional graph name.
         style_constraints: Global style constraints.
         candidate_count: Candidates per shot generation node.
+        knowledge: Optional ProductionKnowledge merged into continuity
+            constraints (does not replace story content).
 
     Returns:
         GraphPlanResult containing graph and created assets.
     """
-    style_constraints = style_constraints or (
-        {"style": story.world.style} if story.world and story.world.style else {}
+    style_constraints = dict(
+        style_constraints
+        or ({"style": story.world.style} if story.world and story.world.style else {})
     )
+    knowledge_continuity: dict[str, Any] = {}
+    if knowledge is not None:
+        from drama_forge.domain.knowledge import apply_knowledge_to_continuity_constraints
+
+        knowledge_continuity = apply_knowledge_to_continuity_constraints(knowledge)
+        if knowledge.style_rules.get("style") and "style" not in style_constraints:
+            style_constraints["style"] = knowledge.style_rules["style"]
     graph = ProductionGraph.create(name=name or f"{story.title}-production")
     assets: dict[str, Asset] = {}
 
@@ -143,7 +154,10 @@ def build_production_graph(
             capability="image_generation",
             character_asset_ids=[asset.id],
             style_constraints=style_constraints,
-            continuity_constraints={"subject": character.name},
+            continuity_constraints={
+                "subject": character.name,
+                **{k: v for k, v in knowledge_continuity.items() if k != "characters"},
+            },
             output_requirements={"aspect_ratio": "1:1", "media": "image"},
             candidate_count=1,
         )

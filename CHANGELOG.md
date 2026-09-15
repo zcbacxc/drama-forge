@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Production Knowledge domain: harvest from story + execution, merge/version, inject into continuity constraints, SQLite persistence
+- Parallel graph scheduler (`Scheduler(max_workers=...)`) with cooperative `CancellationToken`
+- Typed `FailureClass` semantics (HARD/SOFT/PARTIAL/BLOCKED/SKIPPED/DEGRADED) on task results
+- External Production Manifest JSON contract (`load_manifest_file` / `dump_manifest_file`)
+- Persistence schema v2: `production_knowledge`, `candidates`, `execution_events` tables and repositories
 - DeepSeek as an OpenAI-compatible HTTP preset (`chat/completions` path, `deepseek-flash` default model)
 - SiliconFlow image provider adapter (`siliconflow-image`) for `/v1/images/generations`
 - Agnes image via shared images adapter (`agnes-image`, default `agnes-image-2.0-flash`; OpenAI `data[].url` live-verified)

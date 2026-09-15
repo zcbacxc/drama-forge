@@ -10,7 +10,7 @@ docs.
 from __future__ import annotations
 
 # Target schema version applied by Database.migrate().
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Each entry is (version, list_of_sql_statements). Applied in order until
 # PRAGMA user_version reaches SCHEMA_VERSION.
@@ -335,6 +335,71 @@ MIGRATIONS: list[tuple[int, list[str]]] = [
             """
             CREATE INDEX IF NOT EXISTS idx_repair_plans_kind
                 ON repair_plans (kind)
+            """,
+        ],
+    ),
+    (
+        2,
+        [
+            """
+            CREATE TABLE IF NOT EXISTS production_knowledge (
+                id TEXT PRIMARY KEY,
+                story_id TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1,
+                fingerprint TEXT NOT NULL DEFAULT '',
+                -- Full ProductionKnowledge JSON payload.
+                payload TEXT NOT NULL DEFAULT '{}',
+                source_refs TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_knowledge_story_id
+                ON production_knowledge (story_id)
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_knowledge_fingerprint
+                ON production_knowledge (fingerprint)
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS candidates (
+                id TEXT PRIMARY KEY,
+                node_id TEXT NOT NULL,
+                artifact_id TEXT NOT NULL DEFAULT '',
+                selected INTEGER NOT NULL DEFAULT 0,
+                score REAL NOT NULL DEFAULT 0.0,
+                quality_state TEXT NOT NULL DEFAULT 'UNEVALUATED',
+                execution_id TEXT,
+                payload TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_candidates_node_id
+                ON candidates (node_id)
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_candidates_execution_id
+                ON candidates (execution_id)
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS execution_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                execution_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                subject TEXT NOT NULL DEFAULT '',
+                payload TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_events_execution_id
+                ON execution_events (execution_id)
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_events_type
+                ON execution_events (event_type)
             """,
         ],
     ),

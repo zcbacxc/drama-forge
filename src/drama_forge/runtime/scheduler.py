@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from drama_forge.domain.common import ExecutionStatus, NodeStatus, new_id
+from drama_forge.domain.common import ExecutionStatus, FailureClass, NodeStatus, new_id
 from drama_forge.domain.production import GraphNode, ProductionGraph
+from drama_forge.runtime.cancellation import CancellationToken
 from drama_forge.runtime.checkpoint import Checkpoint, CheckpointStore
 from drama_forge.runtime.events import EventBus
 
@@ -34,6 +37,8 @@ class ExecutionContext:
     quality_results: list[Any] = field(default_factory=list)
     events: EventBus = field(default_factory=EventBus)
     config: dict[str, Any] = field(default_factory=dict)
+    cancellation: CancellationToken = field(default_factory=CancellationToken)
+    lock: threading.RLock = field(default_factory=threading.RLock)
 
 
 @dataclass(slots=True)
@@ -47,6 +52,7 @@ class TaskResult:
     output_fingerprints: dict[str, str] = field(default_factory=dict)
     error: str | None = None
     outputs: dict[str, Any] = field(default_factory=dict)
+    failure_class: FailureClass | None = None
 
 
 @dataclass(slots=True)
@@ -80,7 +86,14 @@ class ExecutionPlan:
 
 
 class Scheduler:
-    """Run production graph nodes whose dependencies are satisfied."""
+    """Run production graph nodes whose dependencies are satisfied.
+
+    Decision: dependency-ready nodes may run concurrently when
+    ``max_workers > 1`` (ThreadPoolExecutor). Shared context mutations are
+    serialized via ``context.lock``; provider I/O in ``executor.execute``
+    runs outside that lock. Default ``max_workers=1`` keeps prior serial
+    semantics for full backward compatibility. Cancellation is cooperative.
+    """
 
     def __init__(
         self,
@@ -88,6 +101,7 @@ class Scheduler:
         checkpoint_store: CheckpointStore | None = None,
         max_attempts: int = 3,
         fingerprint_cache: dict[str, dict[str, Any]] | None = None,
+        max_workers: int = 1,
     ) -> None:
         self.executor = executor
         self.checkpoint_store = checkpoint_store or CheckpointStore()
@@ -95,6 +109,8 @@ class Scheduler:
         self.fingerprint_cache: dict[str, dict[str, Any]] = (
             fingerprint_cache if fingerprint_cache is not None else {}
         )
+        self.max_workers = max(1, int(max_workers))
+        self._persist_lock = threading.RLock()
 
     def run(
         self,
@@ -117,24 +133,26 @@ class Scheduler:
             context.events.emit("execution.resumed", context.execution_id)
 
         graph.recompute_all_fingerprints()
-        self.checkpoint_store.save(
-            Checkpoint(
-                graph_id=graph.id,
-                execution_id=context.execution_id,
-                graph_fingerprint=graph.fingerprint(),
-                input_fingerprint=str(context.config.get("input_fingerprint", "")),
-                node_status={nid: n.status.value for nid, n in graph.nodes.items()},
-            )
-        )
+        self._persist(graph, context)
         context.events.emit("execution.started", context.execution_id)
 
         progress = True
         while progress:
+            if context.cancellation.is_cancelled:
+                context.events.emit("execution.cancelled", context.execution_id)
+                break
             progress = False
             ready = graph.ready_nodes()
-            for node in ready:
-                progress = True
-                self._run_node(node, graph, context)
+            if not ready:
+                break
+            progress = True
+            if self.max_workers == 1 or len(ready) == 1:
+                for node in ready:
+                    if context.cancellation.is_cancelled:
+                        break
+                    self._run_node(node, graph, context)
+            else:
+                self._run_ready_parallel(ready, graph, context)
 
         statuses = {nid: n.status for nid, n in graph.nodes.items()}
         self.checkpoint_store.update_status_from_graph(context.execution_id, statuses)
@@ -143,7 +161,9 @@ class Scheduler:
         invalidated = [s for s in statuses.values() if s == NodeStatus.INVALIDATED]
         succeeded = [s for s in statuses.values() if s == NodeStatus.SUCCEEDED]
 
-        if failed and not succeeded:
+        if context.cancellation.is_cancelled and not failed:
+            status = ExecutionStatus.CANCELLED
+        elif failed and not succeeded:
             status = ExecutionStatus.FAILED
         elif failed or invalidated:
             status = ExecutionStatus.PARTIAL
@@ -154,15 +174,33 @@ class Scheduler:
         else:
             status = ExecutionStatus.FAILED
 
-        cp = self.checkpoint_store.load(context.execution_id)
-        if cp:
-            cp.execution_status = status.value
-            cp.failure_state = {
-                nid: n.error for nid, n in graph.nodes.items() if n.error
-            }
-            self.checkpoint_store.save(cp)
-        context.events.emit("execution.finished", context.execution_id, status=status.value)
+        with self._persist_lock:
+            cp = self.checkpoint_store.load(context.execution_id)
+            if cp:
+                cp.execution_status = status.value
+                cp.failure_state = {
+                    nid: n.error for nid, n in graph.nodes.items() if n.error
+                }
+                self.checkpoint_store.save(cp)
+        context.events.emit(
+            "execution.finished", context.execution_id, status=status.value
+        )
         return status
+
+    def _run_ready_parallel(
+        self,
+        ready: list[GraphNode],
+        graph: ProductionGraph,
+        context: ExecutionContext,
+    ) -> None:
+        """Execute dependency-ready nodes concurrently."""
+        workers = min(self.max_workers, len(ready))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [
+                pool.submit(self._run_node, node, graph, context) for node in ready
+            ]
+            for future in as_completed(futures):
+                future.result()
 
     def _run_node(
         self,
@@ -171,90 +209,121 @@ class Scheduler:
         context: ExecutionContext,
     ) -> None:
         """Execute one node with retry semantics."""
-        node.status = NodeStatus.RUNNING
-        node.attempt += 1
-        context.events.emit("node.started", node.id, attempt=node.attempt)
+        if context.cancellation.is_cancelled:
+            if node.status in {NodeStatus.PENDING, NodeStatus.READY}:
+                node.status = NodeStatus.SKIPPED
+            return
 
-        # Fingerprint reuse via shared cache (survives across graph rebuilds)
+        with context.lock:
+            node.status = NodeStatus.RUNNING
+            node.attempt += 1
+            attempt = node.attempt
+        context.events.emit("node.started", node.id, attempt=attempt)
+
         cache_key = node.fingerprint
         enable_reuse = context.config.get("enable_fingerprint_reuse", True)
         if cache_key and enable_reuse:
             cached = self.fingerprint_cache.get(cache_key)
             if cached:
-                node.status = NodeStatus.SUCCEEDED
-                node.artifact_ids = list(cached.get("artifact_ids", []))
-                node.candidate_ids = list(cached.get("candidate_ids", []))
-                node.output_fingerprints = dict(cached.get("output_fingerprints", {}))
-                # rehydrate outputs into current context if missing
-                for aid in node.artifact_ids:
-                    if aid not in context.artifacts:
-                        # leave lookup to artifact store consumers
-                        pass
+                with context.lock:
+                    node.status = NodeStatus.SUCCEEDED
+                    node.artifact_ids = list(cached.get("artifact_ids", []))
+                    node.candidate_ids = list(cached.get("candidate_ids", []))
+                    node.output_fingerprints = dict(
+                        cached.get("output_fingerprints", {})
+                    )
                 context.events.emit("node.reused", node.id, fingerprint=cache_key)
                 self._persist(graph, context)
                 return
 
         try:
+            # I/O / generation runs outside the shared lock.
             result = self.executor.execute(node, context)
-        except Exception as exc:  # noqa: BLE001 鈥?worker boundary
-            result = TaskResult(node_id=node.id, success=False, error=str(exc))
+        except Exception as exc:  # noqa: BLE001 — worker boundary
+            result = TaskResult(
+                node_id=node.id,
+                success=False,
+                error=str(exc),
+                failure_class=FailureClass.HARD_FAILURE,
+            )
 
         if result.success:
-            node.status = NodeStatus.SUCCEEDED
-            node.artifact_ids = result.artifact_ids
-            node.candidate_ids = result.candidate_ids
-            node.output_fingerprints = result.output_fingerprints
-            node.error = None
-            if cache_key:
-                self.fingerprint_cache[cache_key] = {
-                    "artifact_ids": list(result.artifact_ids),
-                    "candidate_ids": list(result.candidate_ids),
-                    "output_fingerprints": dict(result.output_fingerprints),
-                }
+            with context.lock:
+                node.status = NodeStatus.SUCCEEDED
+                node.artifact_ids = result.artifact_ids
+                node.candidate_ids = result.candidate_ids
+                node.output_fingerprints = result.output_fingerprints
+                node.error = None
+                if cache_key:
+                    self.fingerprint_cache[cache_key] = {
+                        "artifact_ids": list(result.artifact_ids),
+                        "candidate_ids": list(result.candidate_ids),
+                        "output_fingerprints": dict(result.output_fingerprints),
+                    }
             context.events.emit("node.succeeded", node.id)
         else:
-            node.error = result.error or "unknown error"
-            if node.attempt < self.max_attempts:
-                node.status = NodeStatus.RETRYING
+            failure_class = result.failure_class or FailureClass.HARD_FAILURE
+            with context.lock:
+                node.error = result.error or "unknown error"
+            if (
+                failure_class == FailureClass.HARD_FAILURE
+                and node.attempt < self.max_attempts
+                and not context.cancellation.is_cancelled
+            ):
+                with context.lock:
+                    node.status = NodeStatus.RETRYING
                 context.events.emit("node.retry", node.id, error=node.error)
-                # retry immediately (sync loop)
                 return self._run_node(node, graph, context)
-            node.status = NodeStatus.FAILED
-            context.events.emit("node.failed", node.id, error=node.error)
+            with context.lock:
+                if failure_class in {FailureClass.SOFT_FAILURE, FailureClass.DEGRADED}:
+                    node.status = NodeStatus.DEGRADED
+                elif failure_class == FailureClass.BLOCKED:
+                    node.status = NodeStatus.BLOCKED
+                elif failure_class == FailureClass.SKIPPED:
+                    node.status = NodeStatus.SKIPPED
+                else:
+                    node.status = NodeStatus.FAILED
+            context.events.emit(
+                "node.failed",
+                node.id,
+                error=node.error,
+                failure_class=str(failure_class),
+            )
 
         self._persist(graph, context)
 
     def _persist(self, graph: ProductionGraph, context: ExecutionContext) -> None:
         """Save checkpoint after a node transition."""
-        statuses = {nid: n.status for nid, n in graph.nodes.items()}
-        cp = self.checkpoint_store.load(context.execution_id)
-        if cp is None:
-            cp = Checkpoint(
-                graph_id=graph.id,
-                execution_id=context.execution_id,
-                graph_fingerprint=graph.fingerprint(),
-                input_fingerprint=str(context.config.get("input_fingerprint", "")),
-            )
-        cp.node_status = {k: v.value for k, v in statuses.items()}
-        cp.completed_nodes = [
-            nid for nid, st in statuses.items() if st == NodeStatus.SUCCEEDED
-        ]
-        cp.node_outputs = {
-            nid: {
-                "artifact_ids": n.artifact_ids,
-                "candidate_ids": n.candidate_ids,
-                "output_fingerprints": n.output_fingerprints,
+        with self._persist_lock:
+            statuses = {nid: n.status for nid, n in graph.nodes.items()}
+            cp = self.checkpoint_store.load(context.execution_id)
+            if cp is None:
+                cp = Checkpoint(
+                    graph_id=graph.id,
+                    execution_id=context.execution_id,
+                    graph_fingerprint=graph.fingerprint(),
+                    input_fingerprint=str(context.config.get("input_fingerprint", "")),
+                )
+            cp.node_status = {k: v.value for k, v in statuses.items()}
+            cp.completed_nodes = [
+                nid for nid, st in statuses.items() if st == NodeStatus.SUCCEEDED
+            ]
+            cp.node_outputs = {
+                nid: {
+                    "artifact_ids": n.artifact_ids,
+                    "candidate_ids": n.candidate_ids,
+                    "output_fingerprints": n.output_fingerprints,
+                }
+                for nid, n in graph.nodes.items()
+                if n.status == NodeStatus.SUCCEEDED
             }
-            for nid, n in graph.nodes.items()
-            if n.status == NodeStatus.SUCCEEDED
-        }
-        cp.artifact_refs = {
-            nid: n.artifact_ids for nid, n in graph.nodes.items() if n.artifact_ids
-        }
-        cp.candidate_refs = {
-            nid: n.candidate_ids for nid, n in graph.nodes.items() if n.candidate_ids
-        }
-        self.checkpoint_store.save(cp)
+            cp.artifact_refs = {
+                nid: n.artifact_ids for nid, n in graph.nodes.items() if n.artifact_ids
+            }
+            cp.candidate_refs = {
+                nid: n.candidate_ids for nid, n in graph.nodes.items() if n.candidate_ids
+            }
+            self.checkpoint_store.save(cp)
 
     def _apply_checkpoint(
         self,

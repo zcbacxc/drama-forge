@@ -129,6 +129,21 @@ class RepairKind(StrEnum):
     POST_GENERATION = "POST_GENERATION"
 
 
+class FailureClass(StrEnum):
+    """Typed failure semantics for tasks and nodes.
+
+    Separates retryable execution problems from quality / policy blocks
+    so Scheduler (Retry) and RepairPlanner keep clear boundaries.
+    """
+
+    HARD_FAILURE = "HARD_FAILURE"
+    SOFT_FAILURE = "SOFT_FAILURE"
+    PARTIAL_FAILURE = "PARTIAL_FAILURE"
+    BLOCKED = "BLOCKED"
+    SKIPPED = "SKIPPED"
+    DEGRADED = "DEGRADED"
+
+
 @dataclass(frozen=True, slots=True)
 class VersionedRef:
     """Reference to a versioned domain object."""

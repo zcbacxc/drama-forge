@@ -1262,3 +1262,198 @@ class RepairRepository:
             record["actions"] = loads(record.get("actions"), default=[])
             result.append(record)
         return result
+
+
+class KnowledgeRepository:
+    """Persist Production Knowledge bundles."""
+
+    def __init__(self, db: Database) -> None:
+        self.db = db
+
+    def save(self, knowledge: Any) -> None:
+        """Insert or replace a knowledge bundle.
+
+        Args:
+            knowledge: ProductionKnowledge domain object.
+        """
+        from drama_forge.domain.asset import utc_now_iso
+
+        now = utc_now_iso()
+        payload = knowledge.to_dict()
+        self.db.connection.execute(
+            """
+            INSERT INTO production_knowledge (
+                id, story_id, version, fingerprint, payload, source_refs,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                story_id = excluded.story_id,
+                version = excluded.version,
+                fingerprint = excluded.fingerprint,
+                payload = excluded.payload,
+                source_refs = excluded.source_refs,
+                updated_at = excluded.updated_at
+            """,
+            (
+                knowledge.id,
+                knowledge.story_id,
+                knowledge.version,
+                knowledge.fingerprint,
+                dumps(payload),
+                dumps(list(knowledge.source_refs)),
+                now,
+                now,
+            ),
+        )
+        self.db.connection.commit()
+
+    def get(self, knowledge_id: str) -> dict[str, Any] | None:
+        """Load one knowledge payload dict."""
+        row = self.db.connection.execute(
+            "SELECT * FROM production_knowledge WHERE id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        record = row_to_dict(row)
+        if record is None:
+            return None
+        record["payload"] = loads(record.get("payload"), default={})
+        record["source_refs"] = loads(record.get("source_refs"), default=[])
+        return record
+
+    def latest_for_story(self, story_id: str) -> dict[str, Any] | None:
+        """Load the highest-version knowledge for a story."""
+        row = self.db.connection.execute(
+            """
+            SELECT * FROM production_knowledge
+            WHERE story_id = ?
+            ORDER BY version DESC, updated_at DESC
+            LIMIT 1
+            """,
+            (story_id,),
+        ).fetchone()
+        record = row_to_dict(row)
+        if record is None:
+            return None
+        record["payload"] = loads(record.get("payload"), default={})
+        record["source_refs"] = loads(record.get("source_refs"), default=[])
+        return record
+
+
+class CandidateRepository:
+    """Persist shot candidates produced during an execution."""
+
+    def __init__(self, db: Database) -> None:
+        self.db = db
+
+    def save(
+        self,
+        candidate_id: str,
+        node_id: str,
+        *,
+        artifact_id: str = "",
+        selected: bool = False,
+        score: float = 0.0,
+        quality_state: str = "UNEVALUATED",
+        execution_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        """Insert or replace a candidate row."""
+        from drama_forge.domain.asset import utc_now_iso
+
+        self.db.connection.execute(
+            """
+            INSERT INTO candidates (
+                id, node_id, artifact_id, selected, score, quality_state,
+                execution_id, payload, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                node_id = excluded.node_id,
+                artifact_id = excluded.artifact_id,
+                selected = excluded.selected,
+                score = excluded.score,
+                quality_state = excluded.quality_state,
+                execution_id = excluded.execution_id,
+                payload = excluded.payload
+            """,
+            (
+                candidate_id,
+                node_id,
+                artifact_id,
+                1 if selected else 0,
+                score,
+                quality_state,
+                execution_id,
+                dumps(payload or {}),
+                utc_now_iso(),
+            ),
+        )
+        self.db.connection.commit()
+
+    def list_by_node(self, node_id: str) -> list[dict[str, Any]]:
+        """List candidates for a production node."""
+        rows = self.db.connection.execute(
+            "SELECT * FROM candidates WHERE node_id = ? ORDER BY created_at",
+            (node_id,),
+        ).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            record = row_to_dict(row)
+            if record is None:
+                continue
+            record["selected"] = bool(record.get("selected"))
+            record["payload"] = loads(record.get("payload"), default={})
+            result.append(record)
+        return result
+
+
+class EventRepository:
+    """Persist structured execution events."""
+
+    def __init__(self, db: Database) -> None:
+        self.db = db
+
+    def append(
+        self,
+        execution_id: str,
+        event_type: str,
+        subject: str = "",
+        payload: dict[str, Any] | None = None,
+        created_at: str = "",
+    ) -> None:
+        """Append one execution event."""
+        from drama_forge.domain.asset import utc_now_iso
+
+        self.db.connection.execute(
+            """
+            INSERT INTO execution_events (
+                execution_id, event_type, subject, payload, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                execution_id,
+                event_type,
+                subject,
+                dumps(payload or {}),
+                created_at or utc_now_iso(),
+            ),
+        )
+        self.db.connection.commit()
+
+    def list_by_execution(self, execution_id: str) -> list[dict[str, Any]]:
+        """List events for one execution in order."""
+        rows = self.db.connection.execute(
+            """
+            SELECT * FROM execution_events
+            WHERE execution_id = ?
+            ORDER BY id
+            """,
+            (execution_id,),
+        ).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            record = row_to_dict(row)
+            if record is None:
+                continue
+            record["payload"] = loads(record.get("payload"), default={})
+            result.append(record)
+        return result
