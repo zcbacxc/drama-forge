@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Programmatic entry point for Drama Forge Core Engine."""
 
 from __future__ import annotations
@@ -92,7 +94,7 @@ class Engine:
         self.repair_planner = RepairPlanner()
         self._executions: dict[str, RunResult] = {}
         self.fingerprint_cache: dict[str, dict[str, Any]] = {}
-        self.db = None
+        self.db: Any | None = None
         self._repos: dict[str, Any] = {}
         if db_path is not None:
             self._init_persistence(db_path)
@@ -447,6 +449,58 @@ class Engine:
         """Return quality report for an execution."""
         result = self._executions.get(execution_id)
         return result.report if result else None
+
+    def retry(self, execution_id: str, story: Story | None = None) -> RunResult:
+        """Retry failed nodes of a prior execution without changing production definition.
+
+        Distinct from repair: retry keeps the same generation specs and inputs
+        and only re-executes nodes that previously failed (or their blocked
+        dependents that are still pending).
+
+        Args:
+            execution_id: Prior execution to retry.
+            story: Story used to rebuild execution context when needed.
+
+        Returns:
+            New RunResult after re-running failed scope.
+
+        Raises:
+            KeyError: If execution is unknown.
+            ValueError: If no prior execution context is available and story is omitted.
+        """
+        from drama_forge.domain.common import NodeStatus
+
+        prior = self._executions.get(execution_id)
+        if prior is None:
+            cp = self.checkpoint_store.load(execution_id)
+            if cp is None:
+                raise KeyError(f"unknown execution: {execution_id}")
+            if story is None:
+                raise ValueError(
+                    "story is required to retry an execution not held in memory"
+                )
+            return self.run(story, resume_execution_id=execution_id)
+
+        graph = prior.graph
+        failed_nodes = [
+            n for n in graph.nodes.values() if n.status == NodeStatus.FAILED
+        ]
+        for node in failed_nodes:
+            node.status = NodeStatus.PENDING
+            node.error = None
+            node.attempt = 0
+
+        # Also reset dependents that never ran because a dependency failed
+        for node in graph.nodes.values():
+            if node.status in (NodeStatus.PENDING, NodeStatus.BLOCKED):
+                node.status = NodeStatus.PENDING
+
+        if story is None:
+            # Best-effort: re-run using stored config only if we can rebuild
+            # from the same graph (production definition unchanged).
+            raise ValueError("story is required to re-execute after retry reset")
+
+        return self._run_graph(story, graph, dict(prior.context.config))
 
     def repair(
         self,

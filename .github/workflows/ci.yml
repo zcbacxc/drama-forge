@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: ruff check src tests
 
+      - name: Type check
+        run: mypy src
+
       - name: Unit and integration tests
         run: python -m pytest -v --tb=short
 

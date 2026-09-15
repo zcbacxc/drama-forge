@@ -319,14 +319,14 @@ def build_production_graph(
                 continue
             for shot in scene.shots:
                 select_name = f"shot_select:{scene.index}.{shot.index}"
-                select_node = next(
+                found_select = next(
                     (n for n in graph.nodes.values() if n.name == select_name),
                     None,
                 )
-                if select_node is not None:
+                if found_select is not None:
                     # kind is informational; dependencies already exist via generate chain
                     edge = GraphEdge.create(
-                        scene_node.id, select_node.id, kind="style_continuity"
+                        scene_node.id, found_select.id, kind="style_continuity"
                     )
                     graph.add_edge(edge)
 

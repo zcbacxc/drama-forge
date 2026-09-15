@@ -91,18 +91,10 @@ class MockProvider(Provider):
                 "seed": seed,
                 "digest": digest,
             },
-            cost=0.01 * request.candidate_count_estimate(),
+            cost=0.01 * max(1, int(request.generation_spec.candidate_count)),
             latency_ms=1.0,
             usage={"units": request.candidate_index + 1},
         )
-
-
-# Helper attached via monkey-style extension to avoid changing Protocol
-def _candidate_count_estimate(self: ProviderRequest) -> int:
-    return max(1, int(self.generation_spec.candidate_count))
-
-
-ProviderRequest.candidate_count_estimate = _candidate_count_estimate  # type: ignore[attr-defined]
 
 
 class MockEvaluatorProvider(Provider):

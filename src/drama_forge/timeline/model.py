@@ -237,21 +237,21 @@ class Timeline:
 
     def find_segment_by_node(self, node_name: str) -> VideoSegment | AudioSegment | None:
         """Find a segment whose node name or node id matches."""
-        for segment in self.video_segments():
-            if segment.node_name == node_name or segment.node_id == node_name:
-                return segment
-        for segment in self.audio_segments():
-            if segment.node_name == node_name or segment.node_id == node_name:
-                return segment
+        for video_seg in self.video_segments():
+            if video_seg.node_name == node_name or video_seg.node_id == node_name:
+                return video_seg
+        for audio_seg in self.audio_segments():
+            if audio_seg.node_name == node_name or audio_seg.node_id == node_name:
+                return audio_seg
         return None
 
     def total_duration(self) -> float:
         """Return the timeline duration as max end time across tracks."""
         duration = 0.0
-        for segment in self.video_segments():
-            duration = max(duration, segment.end_seconds)
-        for segment in self.audio_segments():
-            duration = max(duration, segment.end_seconds)
+        for video_seg in self.video_segments():
+            duration = max(duration, video_seg.end_seconds)
+        for audio_seg in self.audio_segments():
+            duration = max(duration, audio_seg.end_seconds)
         return duration
 
     def fingerprint(self) -> str:

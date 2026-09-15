@@ -114,7 +114,7 @@ def compile_story_from_dict(data: dict[str, Any]) -> Story:
     return story
 
 
-def parse_markdown_story(text: str) -> dict[str, str]:
+def parse_markdown_story(text: str) -> dict[str, Any]:
     """Parse a minimal markdown story into shot descriptions.
 
     Supports headings:
@@ -127,7 +127,7 @@ def parse_markdown_story(text: str) -> dict[str, str]:
         text: Markdown source.
 
     Returns:
-        Dict with title and extracted shot lines (simple parser).
+        Dict with title (str) and extracted shot lines (list[str]).
     """
     title = "Untitled"
     shots: list[str] = []

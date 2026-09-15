@@ -79,7 +79,7 @@ class CanonicalTimelineBuilder:
 
         audio_track = timeline.ensure_track("audio")
         for entry in audio_entries or []:
-            segment = AudioSegment.create(
+            audio_seg = AudioSegment.create(
                 node_name=str(entry.get("node_name") or entry.get("node_id", "")),
                 duration_seconds=float(entry.get("duration_seconds", 2.0) or 2.0),
                 node_id=str(entry.get("node_id", "")),
@@ -88,14 +88,14 @@ class CanonicalTimelineBuilder:
                 text=str(entry.get("text", "")),
                 digest=str(entry.get("digest", "")),
             )
-            audio_track.add(segment)
-            if segment.text:
+            audio_track.add(audio_seg)
+            if audio_seg.text:
                 timeline.dialogues.append(
                     Dialogue(
-                        character_id=segment.character_id,
-                        text=segment.text,
-                        duration_seconds=segment.duration_seconds,
-                        audio_segment_id=segment.id,
+                        character_id=audio_seg.character_id,
+                        text=audio_seg.text,
+                        duration_seconds=audio_seg.duration_seconds,
+                        audio_segment_id=audio_seg.id,
                     )
                 )
 
@@ -214,48 +214,48 @@ class TimelineRenderer:
                 video_by_key[key] = segment
 
         audio_alignment: list[dict[str, Any]] = []
-        for segment in timeline.audio_segments():
-            key = _shot_key(segment.node_name)
+        for audio_seg in timeline.audio_segments():
+            key = _shot_key(audio_seg.node_name)
             host = video_by_key.get(key)
             if host is not None:
                 # Align dialogue audio to the start of its host video segment,
                 # clamped so audio does not start past the host end.
                 start = host.start_seconds
-                if segment.duration_seconds > host.duration_seconds:
-                    segment.duration_seconds = host.duration_seconds
-                segment.start_seconds = start
+                if audio_seg.duration_seconds > host.duration_seconds:
+                    audio_seg.duration_seconds = host.duration_seconds
+                audio_seg.start_seconds = start
                 audio_alignment.append(
                     {
-                        "audio_node": segment.node_name,
+                        "audio_node": audio_seg.node_name,
                         "video_node": host.node_name,
-                        "start_seconds": segment.start_seconds,
-                        "duration_seconds": segment.duration_seconds,
+                        "start_seconds": audio_seg.start_seconds,
+                        "duration_seconds": audio_seg.duration_seconds,
                     }
                 )
             else:
                 # No host video: place sequentially after the video tail.
-                segment.start_seconds = cursor
-                cursor += segment.duration_seconds
+                audio_seg.start_seconds = cursor
+                cursor += audio_seg.duration_seconds
                 audio_alignment.append(
                     {
-                        "audio_node": segment.node_name,
+                        "audio_node": audio_seg.node_name,
                         "video_node": None,
-                        "start_seconds": segment.start_seconds,
-                        "duration_seconds": segment.duration_seconds,
+                        "start_seconds": audio_seg.start_seconds,
+                        "duration_seconds": audio_seg.duration_seconds,
                     }
                 )
 
         # Sync dialogue entries with resolved audio times
         audio_by_id = {s.id: s for s in timeline.audio_segments()}
         for dialogue in timeline.dialogues:
-            host = (
+            audio_host = (
                 audio_by_id.get(dialogue.audio_segment_id)
                 if dialogue.audio_segment_id
                 else None
             )
-            if host is not None:
-                dialogue.start_seconds = host.start_seconds
-                dialogue.duration_seconds = host.duration_seconds
+            if audio_host is not None:
+                dialogue.start_seconds = audio_host.start_seconds
+                dialogue.duration_seconds = audio_host.duration_seconds
 
         # Rebuild transitions at video segment boundaries
         timeline.transitions.clear()

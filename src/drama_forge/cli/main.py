@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CLI entry: compile / plan / run / status / inspect / validate / repair / version."""
 
 from __future__ import annotations
@@ -68,6 +70,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_repair = sub.add_parser("repair", help="Plan and apply local repair", parents=[common])
     p_repair.add_argument("execution_id")
     p_repair.add_argument("story", type=Path)
+
+    p_retry = sub.add_parser(
+        "retry",
+        help="Retry failed nodes of an execution (same production definition)",
+        parents=[common],
+    )
+    p_retry.add_argument("execution_id")
+    p_retry.add_argument("story", type=Path)
 
     sub.add_parser("doctor", help="Self-check environment", parents=[common])
     sub.add_parser("version", help="Print package version", parents=[common])
@@ -210,15 +220,38 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    if args.command == "repair":
+    if args.command == "retry":
         story = engine.compile(args.story)
-        plan, new_result = engine.repair(args.execution_id, story=story)
+        # Seed engine with a prior run is required; retry needs execution_id
+        # from a run performed in this process or via checkpoint.
+        try:
+            retry_result = engine.retry(args.execution_id, story=story)
+        except KeyError as exc:
+            print(str(exc), file=sys.stderr)
+            print(
+                "hint: retry requires an execution from this process; "
+                "use `run` first, or `repair` for quality-driven regeneration",
+                file=sys.stderr,
+            )
+            return 1
         _print(
             {
-                "repair_plan_id": plan.id,
-                "kind": plan.kind.value,
-                "invalidate_nodes": plan.invalidate_node_ids,
-                "keep_nodes": plan.keep_node_ids,
+                "execution_id": retry_result.execution_id,
+                "status": retry_result.status.value,
+                "retried_from": args.execution_id,
+            }
+        )
+        return 0
+
+    if args.command == "repair":
+        story = engine.compile(args.story)
+        repair_plan, new_result = engine.repair(args.execution_id, story=story)
+        _print(
+            {
+                "repair_plan_id": repair_plan.id,
+                "kind": repair_plan.kind.value,
+                "invalidate_nodes": repair_plan.invalidate_node_ids,
+                "keep_nodes": repair_plan.keep_node_ids,
                 "new_execution_id": new_result.execution_id,
                 "new_status": new_result.status.value,
             }
