@@ -237,7 +237,7 @@ class AgnesVideoProvider(Provider):
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": "drama-forge/0.1",
+            "User-Agent": "drama-forge/0.1.0",
         }
         headers.update(self.config.extra_headers)
         body = json.dumps(payload).encode("utf-8")

@@ -298,7 +298,7 @@ class SiliconFlowImageProvider(Provider):
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": "drama-forge/0.1",
+            "User-Agent": "drama-forge/0.1.0",
         }
         headers.update(self.config.extra_headers)
         body = json.dumps(payload).encode("utf-8")
@@ -526,7 +526,7 @@ class SiliconFlowImageProvider(Provider):
         """Best-effort image download; returns None on any failure."""
         try:
             req = urllib.request.Request(url, method="GET")
-            req.add_header("User-Agent", "drama-forge/0.1")
+            req.add_header("User-Agent", "drama-forge/0.1.0")
             with urllib.request.urlopen(req, timeout=self.config.timeout_seconds) as raw:
                 body = raw.read()
                 content_type = (raw.headers.get("Content-Type") or "image/png").split(";")[0]
