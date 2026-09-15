@@ -53,7 +53,16 @@ python -m drama_forge.cli.main repair <execution-id> examples/story_sample.json
 
 ## Provider configuration
 
-Local mock providers work with zero config. To attach an OpenAI-compatible HTTP provider:
+Local mock providers work with zero config. Configuration is loaded from
+`DRAMA_FORGE_*` environment variables, project `.env`, and user-level
+`~/.drama-forge/.env` (auto-created from `.env.example` on first run).
+
+```bash
+cp .env.example .env   # or edit ~/.drama-forge/.env
+# then set keys / DRAMA_FORGE_PROVIDER
+```
+
+To attach an OpenAI-compatible HTTP provider:
 
 ```bash
 export DRAMA_FORGE_PROVIDER=openai_compatible

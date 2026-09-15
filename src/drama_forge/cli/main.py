@@ -100,19 +100,32 @@ def main(argv: list[str] | None = None) -> int:
         _print({"version": __version__})
         return 0
 
-    engine = Engine(artifact_root=args.artifact_root, db_path=args.db)
+    # Load ~/.drama-forge/.env and project .env before Engine construction.
+    from drama_forge.config import get_settings, load_dotenv
+
+    load_dotenv(create_user_config=True)
+    settings = get_settings(reload=True, load_files=False)
+
+    engine = Engine(
+        artifact_root=args.artifact_root or settings.artifact_root,
+        db_path=args.db or settings.db_path,
+        env=settings.provider_env(),
+    )
 
     if args.command == "doctor":
         _print(
             {
                 "ok": True,
                 "version": __version__,
+                "provider_family": settings.provider,
+                "dry_run": settings.provider_dry_run,
                 "providers": [p.id for p in engine.registry.all()],
                 "artifact_root": str(engine.artifact_store.root),
                 "persistence": {
                     "enabled": engine.db is not None,
-                    "path": args.db,
+                    "path": args.db or settings.db_path,
                 },
+                "user_config": str(Path.home() / ".drama-forge" / ".env"),
             }
         )
         return 0
