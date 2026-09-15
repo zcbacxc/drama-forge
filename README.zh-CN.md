@@ -99,6 +99,14 @@ export DRAMA_FORGE_DEEPSEEK_API_KEY=sk-...
 export DRAMA_FORGE_SILICONFLOW_API_KEY=sk-...
 ```
 
+## 文档
+
+- [docs/index.md](docs/index.md) — 架构、贡献、路线图、打包、ADR、Provider
+- [ARCHITECTURE.zh-CN.md](docs/ARCHITECTURE.zh-CN.md) · [Architecture](docs/ARCHITECTURE.md)
+- [CONTRIBUTING.zh-CN.md](docs/CONTRIBUTING.zh-CN.md) · [Contributing](docs/CONTRIBUTING.md)
+- [ROADMAP.zh-CN.md](docs/ROADMAP.zh-CN.md) · [Roadmap](docs/ROADMAP.md)
+- [PACKAGING.zh-CN.md](docs/PACKAGING.zh-CN.md) · [Packaging](docs/PACKAGING.md)
+
 ## 开发
 
 ```bash

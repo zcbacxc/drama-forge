@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/zcbacxc/drama-forge/blob/main/docs/
+    about: Check the docs directory for architecture, contributing, and packaging guides
+  - name: Discussions
+    url: https://github.com/zcbacxc/drama-forge/discussions
+    about: Ask questions and discuss ideas in the Discussions tab

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Public bilingual `docs/` set: architecture, contributing, roadmap, packaging, ADR, LLM/provider guides, AI guide index
+- GitHub PR template and issue templates (bug / feature / config)
+
 ## [0.1.0] - 2026-09-15
 
 Initial public release of the Core Engine implementation plan (stages A–F).

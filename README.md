@@ -142,6 +142,14 @@ src/drama_forge/
   cli/            # verification CLI
 ```
 
+## Documentation
+
+- [docs/index.md](docs/index.md) — architecture, contributing, roadmap, packaging, ADR, providers
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) · [架构](docs/ARCHITECTURE.zh-CN.md)
+- [CONTRIBUTING.md](docs/CONTRIBUTING.md) · [贡献指南](docs/CONTRIBUTING.zh-CN.md)
+- [ROADMAP.md](docs/ROADMAP.md) · [路线图](docs/ROADMAP.zh-CN.md)
+- [PACKAGING.md](docs/PACKAGING.md) · [打包](docs/PACKAGING.zh-CN.md)
+
 ## Development
 
 ```bash
