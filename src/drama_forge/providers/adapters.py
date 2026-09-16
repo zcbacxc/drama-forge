@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from typing import Any
 
 from drama_forge.providers.base import Provider, ProviderRequest, ProviderResponse
@@ -60,6 +61,7 @@ class MockProvider(Provider):
         self.fail_nodes = fail_nodes or set()
         self.quality_bias = quality_bias
         self.call_count = 0
+        self._call_count_lock = threading.Lock()
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         """Produce a deterministic mock artifact payload.
@@ -70,7 +72,8 @@ class MockProvider(Provider):
         Returns:
                     ProviderResponse
         """
-        self.call_count += 1
+        with self._call_count_lock:
+            self.call_count += 1
         node_id = request.generation_spec.node_id
         if node_id in self.fail_nodes:
             return ProviderResponse(
@@ -132,6 +135,7 @@ class MockEvaluatorProvider(Provider):
         self.cost_score = 0.9
         self.latency_score = 0.95
         self.call_count = 0
+        self._call_count_lock = threading.Lock()
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
         """Return evaluation scores as JSON content.
@@ -142,7 +146,8 @@ class MockEvaluatorProvider(Provider):
         Returns:
                     ProviderResponse
         """
-        self.call_count += 1
+        with self._call_count_lock:
+            self.call_count += 1
         inputs = request.inputs
         candidate_digests = inputs.get("candidate_digests") or []
         character_ids = request.generation_spec.continuity_constraints.get(
