@@ -14,6 +14,33 @@ from drama_forge.domain.common import (
     stable_hash,
 )
 
+# Stable selection_policy keys that define production identity.
+# Tunable hyperparameters such as weights are intentionally excluded so that
+# score-weight tweaks do not invalidate generation fingerprints (W1).
+SELECTION_POLICY_FINGERPRINT_KEYS: frozenset[str] = frozenset(
+    {
+        "strategy",
+        "min_technical_score",
+        "require_pass_gate",
+    }
+)
+
+
+def stable_selection_policy(selection_policy: dict[str, Any]) -> dict[str, Any]:
+    """Project selection_policy onto keys that define production identity.
+
+    Args:
+        selection_policy: Full selection policy (may include tunables like weights).
+
+    Returns:
+        Dict containing only stable keys that are present in the input.
+    """
+    return {
+        key: selection_policy[key]
+        for key in SELECTION_POLICY_FINGERPRINT_KEYS
+        if key in selection_policy
+    }
+
 
 @dataclass(slots=True)
 class CanonicalGenerationSpec:
@@ -49,7 +76,9 @@ class CanonicalGenerationSpec:
                 "style_constraints": self.style_constraints,
                 "continuity_constraints": self.continuity_constraints,
                 "output_requirements": self.output_requirements,
-                "selection_policy": self.selection_policy,
+                # Only stable selection keys; weights and other tunables are
+                # stripped so they do not change production identity (W1/F1).
+                "selection_policy": stable_selection_policy(self.selection_policy),
                 "candidate_count": self.candidate_count,
             }
         )
