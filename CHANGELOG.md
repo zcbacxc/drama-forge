@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Public bilingual `docs/` set: architecture, contributing, roadmap, packaging, ADR, LLM/provider guides, AI guide index
 - GitHub PR template and issue templates (bug / feature / config)
+- CostTracker wiring (W4a): `ExecutionContext.cost_tracker` injected by `Engine.run` / `Engine._run_graph`; `ProductionWorker` records every `provider.generate` outcome (best-effort, never fails the task); `RunResult.cost_summary()` exposes the execution rollup
+- Provider outcome events `provider.called` / `provider.failed` carry cost, latency, and usage
+
+### Fixed
+- `CostTracker` is now thread-safe under `Scheduler(max_workers>1)` (`record` / summary reads guarded by a lock)
+- `MockProvider` / `MockEvaluatorProvider` call counters are thread-safe so parallel tests can use them as ground truth
 
 ## [0.1.0] - 2026-09-15
 
