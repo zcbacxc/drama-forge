@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from drama_forge.domain.common import ExecutionStatus, FailureClass, NodeStatus, new_id
 from drama_forge.domain.production import GraphNode, ProductionGraph
+from drama_forge.providers.cost import CostTracker
 from drama_forge.runtime.cancellation import CancellationToken
 from drama_forge.runtime.checkpoint import Checkpoint, CheckpointStore
 from drama_forge.runtime.events import EventBus
@@ -47,6 +48,8 @@ class ExecutionContext:
     config: dict[str, Any] = field(default_factory=dict)
     cancellation: CancellationToken = field(default_factory=CancellationToken)
     lock: threading.RLock = field(default_factory=threading.RLock)
+    # Injected by Engine.run / Engine._run_graph; workers only read it.
+    cost_tracker: CostTracker | None = None
 
 
 @dataclass(slots=True)

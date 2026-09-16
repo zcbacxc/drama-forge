@@ -11,7 +11,7 @@ from drama_forge.artifacts.store import ArtifactStore
 from drama_forge.domain.asset import Artifact, Candidate, CandidateSet, Provenance
 from drama_forge.domain.common import ArtifactType
 from drama_forge.domain.production import DecisionRecord, GraphNode
-from drama_forge.providers.base import ProviderRequest
+from drama_forge.providers.base import ProviderRequest, ProviderResponse
 from drama_forge.providers.router import ProviderRouter
 from drama_forge.quality.evaluators import evaluate_candidates, parse_evaluation_json
 from drama_forge.quality.validators import validate_artifact
@@ -96,6 +96,43 @@ class ProductionWorker:
         )
         return provider, decision
 
+    def _record_provider_outcome(
+        self,
+        context: ExecutionContext,
+        node: GraphNode,
+        provider_id: str,
+        capability: str,
+        response: ProviderResponse,
+    ) -> None:
+        """Best-effort cost bookkeeping and provider outcome event.
+
+        Never raises: a tracker/event failure must not fail the Task.
+        Skipped entirely when ``context.cost_tracker`` is None (workers do
+        not create their own tracker).
+        """
+        try:
+            tracker = context.cost_tracker
+            if tracker is not None:
+                tracker.record(
+                    context.execution_id,
+                    response,
+                    provider_id=provider_id,
+                    capability=capability,
+                )
+            context.events.emit(
+                "provider.called" if response.ok else "provider.failed",
+                node.id,
+                provider=provider_id,
+                capability=capability,
+                cost=response.cost,
+                latency_ms=response.latency_ms,
+                usage=dict(response.usage or {}),
+                ok=response.ok,
+                error=response.error,
+            )
+        except Exception:
+            return
+
     def _provenance(
         self,
         node: GraphNode,
@@ -143,6 +180,13 @@ class ProductionWorker:
             candidate_index=0,
         )
         response = provider.generate(request)
+        self._record_provider_outcome(
+            context,
+            node,
+            provider_id=provider.id,
+            capability=node.generation_spec.capability,
+            response=response,
+        )
         if not response.ok:
             return TaskResult(node_id=node.id, success=False, error=response.error)
 
@@ -208,6 +252,13 @@ class ProductionWorker:
                 candidate_index=index,
             )
             response = provider.generate(request)
+            self._record_provider_outcome(
+                context,
+                node,
+                provider_id=provider.id,
+                capability=node.generation_spec.capability,
+                response=response,
+            )
             if not response.ok:
                 return TaskResult(
                     node_id=node.id,
@@ -307,6 +358,13 @@ class ProductionWorker:
             candidate_index=0,
         )
         response = provider.generate(request)
+        self._record_provider_outcome(
+            context,
+            node,
+            provider_id=provider.id,
+            capability=capability,
+            response=response,
+        )
         if not response.ok:
             return TaskResult(node_id=node.id, success=False, error=response.error)
 
@@ -430,6 +488,13 @@ class ProductionWorker:
             candidate_index=0,
         )
         response = provider.generate(request)
+        self._record_provider_outcome(
+            context,
+            node,
+            provider_id=provider.id,
+            capability=capability,
+            response=response,
+        )
         if not response.ok:
             return TaskResult(node_id=node.id, success=False, error=response.error)
 

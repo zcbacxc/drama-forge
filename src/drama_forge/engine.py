@@ -25,6 +25,7 @@ from drama_forge.domain.knowledge import (
 from drama_forge.domain.production import ProductionManifest
 from drama_forge.domain.quality import Issue, QualityResult, RepairPlan, ValidationReport
 from drama_forge.domain.story import Story
+from drama_forge.providers.cost import CostTracker, ExecutionCostSummary
 from drama_forge.providers.factory import build_default_registry
 from drama_forge.providers.registry import ProviderRegistry
 from drama_forge.providers.router import ProviderRouter
@@ -80,6 +81,17 @@ class RunResult:
                     list[Artifact]
         """
         return list(self.context.artifacts.values())
+
+    def cost_summary(self) -> ExecutionCostSummary | None:
+        """Return aggregated provider cost/usage for this run.
+
+        Returns:
+            Cost summary when a tracker was injected, else None.
+        """
+        tracker = self.context.cost_tracker
+        if tracker is None:
+            return None
+        return tracker.summary(self.execution_id)
 
 
 class Engine:
@@ -274,6 +286,7 @@ class Engine:
                 "provider_policy": policy,
                 "manifest_id": manifest.id,
             },
+            cost_tracker=CostTracker(),
         )
         worker = ProductionWorker(
             router=self.router,
@@ -730,6 +743,7 @@ class Engine:
                 "enable_fingerprint_reuse": False,
                 "provider_policy": policy,
             },
+            cost_tracker=CostTracker(),
         )
         # Rehydrate assets from prior if needed 鈥?assets live on graph specs
         worker = ProductionWorker(

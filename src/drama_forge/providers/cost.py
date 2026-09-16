@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,6 +54,8 @@ class CostTracker:
         Args:
                     None.
         """
+        # Guard _summaries for concurrent workers (Scheduler max_workers>1).
+        self._lock = threading.RLock()
         self._summaries: dict[str, ExecutionCostSummary] = {}
 
     def record(
@@ -78,45 +81,46 @@ class CostTracker:
         Returns:
             Updated summary for the execution.
         """
-        summary = self._summaries.setdefault(
-            execution_id, ExecutionCostSummary(execution_id=execution_id)
-        )
-        resolved_provider = provider_id
-        resolved_cost = 0.0
-        resolved_usage: dict[str, Any] = dict(usage or {})
-        ok = True
-        if response is not None:
-            ok = response.ok
-            if not resolved_provider:
-                resolved_provider = str(
-                    response.provider_metadata.get("provider") or ""
-                )
-            if cost is None:
-                resolved_cost = float(response.cost or 0.0)
-            if not resolved_usage:
-                resolved_usage = dict(response.usage or {})
-        if cost is not None:
-            resolved_cost = float(cost)
+        with self._lock:
+            summary = self._summaries.setdefault(
+                execution_id, ExecutionCostSummary(execution_id=execution_id)
+            )
+            resolved_provider = provider_id
+            resolved_cost = 0.0
+            resolved_usage: dict[str, Any] = dict(usage or {})
+            ok = True
+            if response is not None:
+                ok = response.ok
+                if not resolved_provider:
+                    resolved_provider = str(
+                        response.provider_metadata.get("provider") or ""
+                    )
+                if cost is None:
+                    resolved_cost = float(response.cost or 0.0)
+                if not resolved_usage:
+                    resolved_usage = dict(response.usage or {})
+            if cost is not None:
+                resolved_cost = float(cost)
 
-        summary.call_count += 1
-        if not ok:
-            summary.failed_calls += 1
-        summary.total_cost += resolved_cost
-        if resolved_provider:
-            summary.by_provider[resolved_provider] = (
-                summary.by_provider.get(resolved_provider, 0.0) + resolved_cost
-            )
-        if capability:
-            summary.by_capability[capability] = (
-                summary.by_capability.get(capability, 0.0) + resolved_cost
-            )
-        for key, value in resolved_usage.items():
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                summary.usage[key] = summary.usage.get(key, 0.0) + float(value)
-            else:
-                # keep non-numeric usage as last-seen marker under a string bucket
-                summary.usage[key] = value  # type: ignore[assignment]
-        return summary
+            summary.call_count += 1
+            if not ok:
+                summary.failed_calls += 1
+            summary.total_cost += resolved_cost
+            if resolved_provider:
+                summary.by_provider[resolved_provider] = (
+                    summary.by_provider.get(resolved_provider, 0.0) + resolved_cost
+                )
+            if capability:
+                summary.by_capability[capability] = (
+                    summary.by_capability.get(capability, 0.0) + resolved_cost
+                )
+            for key, value in resolved_usage.items():
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    summary.usage[key] = summary.usage.get(key, 0.0) + float(value)
+                else:
+                    # keep non-numeric usage as last-seen marker under a string bucket
+                    summary.usage[key] = value  # type: ignore[assignment]
+            return summary
 
     def summary(self, execution_id: str) -> ExecutionCostSummary:
         """Return the summary for an execution (empty if unknown).
@@ -127,9 +131,10 @@ class CostTracker:
         Returns:
                     ExecutionCostSummary
         """
-        return self._summaries.get(
-            execution_id, ExecutionCostSummary(execution_id=execution_id)
-        )
+        with self._lock:
+            return self._summaries.get(
+                execution_id, ExecutionCostSummary(execution_id=execution_id)
+            )
 
     def total_cost(self, execution_id: str) -> float:
         """Return total cost for an execution.
@@ -148,7 +153,8 @@ class CostTracker:
         Returns:
                     list[str]
         """
-        return list(self._summaries.keys())
+        with self._lock:
+            return list(self._summaries.keys())
 
     def reset(self, execution_id: str | None = None) -> None:
         """Clear one execution, or all when execution_id is None.
@@ -159,7 +165,8 @@ class CostTracker:
         Returns:
                     None
         """
-        if execution_id is None:
-            self._summaries.clear()
-            return
-        self._summaries.pop(execution_id, None)
+        with self._lock:
+            if execution_id is None:
+                self._summaries.clear()
+                return
+            self._summaries.pop(execution_id, None)
