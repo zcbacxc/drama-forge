@@ -29,6 +29,7 @@ class MockProvider(Provider):
         latency_score: float = 0.9,
         fail_nodes: set[str] | None = None,
         quality_bias: float = 0.0,
+        fail_retryable: bool = True,
     ) -> None:
         """__init__.
 
@@ -41,6 +42,7 @@ class MockProvider(Provider):
                     latency_score: default 0.9
                     fail_nodes: default None
                     quality_bias: default 0.0
+                    fail_retryable: whether fail_nodes errors are retryable
         """
         self.id = provider_id
         self.capabilities = capabilities or {
@@ -59,6 +61,7 @@ class MockProvider(Provider):
         self.latency_score = latency_score
         self.fail_nodes = fail_nodes or set()
         self.quality_bias = quality_bias
+        self.fail_retryable = fail_retryable
         self.call_count = 0
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
@@ -77,6 +80,7 @@ class MockProvider(Provider):
                 ok=False,
                 error=f"mock failure for node {node_id}",
                 provider_metadata={"provider": self.id},
+                retryable=self.fail_retryable,
             )
 
         spec_hash = request.generation_spec.fingerprint()

@@ -14,6 +14,7 @@ from drama_forge.domain.production import GraphNode, ProductionGraph
 from drama_forge.runtime.cancellation import CancellationToken
 from drama_forge.runtime.checkpoint import Checkpoint, CheckpointStore
 from drama_forge.runtime.events import EventBus
+from drama_forge.runtime.retry import RetryPolicy, sleep_seconds
 
 
 class NodeExecutor(Protocol):
@@ -51,7 +52,13 @@ class ExecutionContext:
 
 @dataclass(slots=True)
 class TaskResult:
-    """Result submitted by a worker for one node."""
+    """Result submitted by a worker for one node.
+
+    Attributes:
+        retryable: When ``success`` is False and failure is HARD, whether
+            the Scheduler may back off and retry. Permanent provider errors
+            and circuit-open rejections set this False.
+    """
 
     node_id: str
     success: bool
@@ -61,6 +68,7 @@ class TaskResult:
     error: str | None = None
     outputs: dict[str, Any] = field(default_factory=dict)
     failure_class: FailureClass | None = None
+    retryable: bool = True
 
 
 @dataclass(slots=True)
@@ -117,18 +125,22 @@ class Scheduler:
         self,
         executor: NodeExecutor,
         checkpoint_store: CheckpointStore | None = None,
-        max_attempts: int = 3,
+        max_attempts: int = 2,
         fingerprint_cache: dict[str, dict[str, Any]] | None = None,
         max_workers: int = 1,
+        retry_policy: RetryPolicy | None = None,
+        sleeper: Any | None = None,
     ) -> None:
         """__init__.
 
         Args:
                     executor: NodeExecutor
                     checkpoint_store: default None
-                    max_attempts: default 3
+                    max_attempts: default 2 (authoritative; matches Engine)
                     fingerprint_cache: default None
                     max_workers: default 1
+                    retry_policy: Exponential backoff policy for HARD retries
+                    sleeper: Optional injectable sleep (tests use no-op)
         """
         self.executor = executor
         self.checkpoint_store = checkpoint_store or CheckpointStore()
@@ -137,6 +149,8 @@ class Scheduler:
             fingerprint_cache if fingerprint_cache is not None else {}
         )
         self.max_workers = max(1, int(max_workers))
+        self.retry_policy = retry_policy or RetryPolicy()
+        self._sleep = sleeper
         self._persist_lock = threading.RLock()
 
     def run(
@@ -294,12 +308,21 @@ class Scheduler:
                 node.error = result.error or "unknown error"
             if (
                 failure_class == FailureClass.HARD_FAILURE
+                and result.retryable
                 and node.attempt < self.max_attempts
                 and not context.cancellation.is_cancelled
             ):
+                delay = self.retry_policy.delay_for_attempt(attempt)
                 with context.lock:
                     node.status = NodeStatus.RETRYING
-                context.events.emit("node.retry", node.id, error=node.error)
+                context.events.emit(
+                    "node.retry",
+                    node.id,
+                    error=node.error,
+                    attempt=attempt,
+                    delay=delay,
+                )
+                sleep_seconds(delay, sleeper=self._sleep)
                 return self._run_node(node, graph, context)
             with context.lock:
                 if failure_class in {FailureClass.SOFT_FAILURE, FailureClass.DEGRADED}:

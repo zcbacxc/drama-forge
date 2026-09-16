@@ -32,6 +32,7 @@ from drama_forge.quality.repair import RepairPlanner
 from drama_forge.quality.validators import validate_continuity
 from drama_forge.runtime.checkpoint import CheckpointStore
 from drama_forge.runtime.events import EventBus
+from drama_forge.runtime.retry import RetryPolicy, retry_policy_from_env
 from drama_forge.runtime.scheduler import (
     ExecutionContext,
     ExecutionPlan,
@@ -92,6 +93,7 @@ class Engine:
         db_path: str | Path | None = None,
         env: dict[str, str] | None = None,
         registry: ProviderRegistry | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         """Create an Engine facade.
 
@@ -101,6 +103,7 @@ class Engine:
             db_path: Optional SQLite path for durable production history.
             env: Optional environment mapping for provider factory.
             registry: Optional pre-built provider registry (overrides factory).
+            retry_policy: Optional backoff policy; defaults from env.
         """
         self.registry = registry or build_default_registry(
             env=env, enable_mock=enable_mock_providers
@@ -111,6 +114,7 @@ class Engine:
         self.repair_planner = RepairPlanner()
         self._executions: dict[str, RunResult] = {}
         self.fingerprint_cache: dict[str, dict[str, Any]] = {}
+        self.retry_policy = retry_policy or retry_policy_from_env(env)
         self.db: Any | None = None
         self._repos: dict[str, Any] = {}
         if db_path is not None:
@@ -287,6 +291,7 @@ class Engine:
             max_attempts=2,
             fingerprint_cache=self.fingerprint_cache,
             max_workers=max_workers,
+            retry_policy=self.retry_policy,
         )
         if cancellation is not None:
             context.cancellation = cancellation
@@ -743,6 +748,7 @@ class Engine:
             checkpoint_store=self.checkpoint_store,
             max_attempts=2,
             fingerprint_cache=self.fingerprint_cache,
+            retry_policy=self.retry_policy,
         )
         status = scheduler.run(graph, context)
 

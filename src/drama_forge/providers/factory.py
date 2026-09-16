@@ -45,6 +45,7 @@ from drama_forge.providers.agnes_video import (
     AgnesVideoProvider,
     agnes_video_config_from_env,
 )
+from drama_forge.providers.circuit_breaker import maybe_wrap_with_circuit
 from drama_forge.providers.deepseek import deepseek_config_from_env
 from drama_forge.providers.http_adapter import HttpProviderConfig, OpenAICompatibleProvider
 from drama_forge.providers.registry import ProviderRegistry
@@ -169,7 +170,7 @@ def register_deepseek_provider(
     """
     config = deepseek_config_from_env(env).to_http_config()
     provider = OpenAICompatibleProvider(config=config, env=dict(env))
-    registry.register(provider)
+    registry.register(maybe_wrap_with_circuit(provider, env=env))
     return provider
 
 
@@ -187,7 +188,7 @@ def register_siliconflow_provider(
     """
     config = siliconflow_config_from_env(env)
     provider = SiliconFlowImageProvider(config=config, env=dict(env))
-    registry.register(provider)
+    registry.register(maybe_wrap_with_circuit(provider, env=env))
     return provider
 
 
@@ -205,7 +206,7 @@ def register_agnes_video_provider(
     """
     config = agnes_video_config_from_env(env)
     provider = AgnesVideoProvider(config=config, env=dict(env))
-    registry.register(provider)
+    registry.register(maybe_wrap_with_circuit(provider, env=env))
     return provider
 
 
@@ -244,7 +245,7 @@ def register_agnes_image_provider(
         or _bool("DRAMA_FORGE_AGNES_IMAGE_DRY_RUN"),
     )
     provider = SiliconFlowImageProvider(config=config, env=dict(env))
-    registry.register(provider)
+    registry.register(maybe_wrap_with_circuit(provider, env=env))
     return provider
 
 
@@ -276,7 +277,10 @@ def build_default_registry(
         if family in _HTTP_KINDS:
             config = http_config or http_config_from_env(resolved_env)
             registry.register(
-                OpenAICompatibleProvider(config=config, env=dict(resolved_env))
+                maybe_wrap_with_circuit(
+                    OpenAICompatibleProvider(config=config, env=dict(resolved_env)),
+                    env=resolved_env,
+                )
             )
             continue
         if family in _DEEPSEEK_KINDS:

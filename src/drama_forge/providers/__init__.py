@@ -9,6 +9,14 @@ from drama_forge.providers.agnes_video import (
     agnes_video_config_from_env,
 )
 from drama_forge.providers.base import Provider, ProviderRequest, ProviderResponse
+from drama_forge.providers.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerProvider,
+    CircuitState,
+    circuit_config_from_env,
+    maybe_wrap_with_circuit,
+)
 from drama_forge.providers.cost import CostTracker, ExecutionCostSummary
 from drama_forge.providers.deepseek import (
     DeepSeekPreset,
@@ -57,4 +65,10 @@ __all__ = [
     "AgnesVideoConfig",
     "AgnesVideoProvider",
     "agnes_video_config_from_env",
+    "CircuitBreaker",
+    "CircuitBreakerConfig",
+    "CircuitBreakerProvider",
+    "CircuitState",
+    "circuit_config_from_env",
+    "maybe_wrap_with_circuit",
 ]
