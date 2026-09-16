@@ -1,5 +1,11 @@
 name: Publish to PyPI
 
+# Fires on version tags only. Configure Trusted Publishing on pypi.org
+# (and test.pypi.org) before automated releases:
+#   Owner: zcbacxc  Repo: drama-forge  Workflow: publish.yml
+#   Environment: (leave empty unless the workflow sets one)
+# skip-existing keeps re-runs safe if a version was already uploaded manually.
+
 on:
   push:
     tags: ["v*"]
@@ -47,6 +53,7 @@ jobs:
       - name: Publish to ${{ steps.determine_target.outputs.target }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          skip-existing: true
           repository-url: ${{ steps.determine_target.outputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}
 
       - name: Generate release notes from CHANGELOG
