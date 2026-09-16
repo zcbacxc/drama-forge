@@ -48,38 +48,61 @@ class Checkpoint:
 
 
 class CheckpointStore:
-    """In-memory checkpoint store (swap for SQLite/FS later)."""
+    """In-memory checkpoint store with optional durable repository fallback.
 
-    def __init__(self) -> None:
+    When a repository (e.g. CheckpointRepository) is attached, ``save``
+    dual-writes and ``load`` falls back to the durable store on memory miss.
+    The repository is duck-typed so this module does not import persistence.
+    """
+
+    def __init__(self, repository: Any | None = None) -> None:
         """__init__.
 
         Args:
-                    None.
+            repository: Optional durable checkpoint repository (save/load).
         """
         self._store: dict[str, Checkpoint] = {}
+        self._repository = repository
 
-    def save(self, checkpoint: Checkpoint) -> Checkpoint:
-        """Persist a checkpoint by execution id.
+    def attach_repository(self, repository: Any | None) -> None:
+        """Attach or replace the durable checkpoint repository.
 
         Args:
-                    checkpoint: Checkpoint
+            repository: Optional durable checkpoint repository (save/load).
+        """
+        self._repository = repository
+
+    def save(self, checkpoint: Checkpoint) -> Checkpoint:
+        """Persist a checkpoint by execution id (memory + optional repository).
+
+        Args:
+            checkpoint: Checkpoint
 
         Returns:
-                    Checkpoint
+            Checkpoint
         """
         self._store[checkpoint.execution_id] = checkpoint
+        if self._repository is not None:
+            self._repository.save(checkpoint)
         return checkpoint
 
     def load(self, execution_id: str) -> Checkpoint | None:
-        """Load a checkpoint if present.
+        """Load a checkpoint from memory, falling back to the repository.
 
         Args:
-                    execution_id: str
+            execution_id: str
 
         Returns:
-                    Checkpoint | None
+            Checkpoint | None
         """
-        return self._store.get(execution_id)
+        cp = self._store.get(execution_id)
+        if cp is not None:
+            return cp
+        if self._repository is not None:
+            cp = self._repository.load(execution_id)
+            if cp is not None:
+                self._store[execution_id] = cp
+        return cp
 
     def update_status_from_graph(
         self,

@@ -33,9 +33,13 @@ def test_validation_2_interrupt_resume(engine, story) -> None:
     cp = engine.checkpoint_store.load(result.execution_id)
     assert cp is not None
     assert cp.completed_nodes
-    # resume should not crash and should mark reused nodes
+    # resume should not crash; completed nodes are restored (equivalent skip)
     resumed = engine.run(story, candidate_count=1, resume_execution_id=result.execution_id)
     assert resumed.status == ExecutionStatus.SUCCEEDED
+    # F14 decision B: resume keeps fingerprint reuse enabled
+    assert resumed.context.config.get("enable_fingerprint_reuse") is True
+    for nid in cp.completed_nodes:
+        assert resumed.graph.nodes[nid].status == NodeStatus.SUCCEEDED
     # checkpoint still available
     assert engine.checkpoint_store.load(result.execution_id) is not None
 
