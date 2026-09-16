@@ -4,16 +4,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from drama_forge.domain.asset import utc_now_iso
 from drama_forge.domain.common import (
+    DimensionStatus,
     GateResult,
     IssueType,
     RepairKind,
     Severity,
     new_id,
+)
+
+# Statuses that may contribute to the overall arithmetic mean.
+AVAILABLE_DIMENSION_STATUSES: frozenset[DimensionStatus] = frozenset(
+    {DimensionStatus.MEASURED, DimensionStatus.PROXY}
 )
 
 
@@ -60,8 +67,76 @@ class Issue:
 
 
 @dataclass(slots=True)
+class DimensionMeasurement:
+    """One quality dimension score with provenance status.
+
+    Attributes:
+        name: Dimension identifier (e.g. quality_score).
+        score: Normalized score, or None when unavailable/error.
+        status: measured | proxy | unavailable | error.
+        judge_source: Who/how produced the score (e.g. "heuristic", "provider").
+        details: Free-form diagnostic payload.
+    """
+
+    name: str
+    score: float | None = None
+    status: DimensionStatus = DimensionStatus.UNAVAILABLE
+    judge_source: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def is_available(self) -> bool:
+        """Return True when this dimension may count toward overall.
+
+        Returns:
+                    bool
+        """
+        return (
+            self.status in AVAILABLE_DIMENSION_STATUSES and self.score is not None
+        )
+
+
+def compute_overall_score(
+    dimensions: Mapping[str, DimensionMeasurement] | Iterable[DimensionMeasurement],
+) -> float | None:
+    """Arithmetic mean over available dimensions only.
+
+    Only measured/proxy dimensions with a non-None score enter the mean.
+    unavailable/error dimensions are excluded from the denominator and are
+    never coerced to 0. All unavailable (or empty) → None.
+
+    Args:
+        dimensions: Mapping of name → measurement, or an iterable of measurements.
+
+    Returns:
+        Overall score in the same scale as dimension scores, or None.
+    """
+    if isinstance(dimensions, Mapping):
+        items: Iterable[DimensionMeasurement] = dimensions.values()
+    else:
+        items = dimensions
+    available = [m.score for m in items if m.is_available() and m.score is not None]
+    if not available:
+        return None
+    return sum(available) / len(available)
+
+
+@dataclass(slots=True)
 class QualityResult:
-    """Outcome of validating/evaluating one subject."""
+    """Outcome of validating/evaluating one subject.
+
+    Attributes:
+        id: Result identifier.
+        subject_id: Evaluated subject (node / artifact / candidate set).
+        gate: Gate outcome.
+        scores: Flat score bag kept for backward compatibility.
+        issues: Structured quality issues.
+        evidence: Free-form evidence payload.
+        created_at: ISO timestamp.
+        dimensions: Optional per-dimension measurements with status/provenance.
+            Absent/empty on legacy validators — callers must tolerate missing.
+        overall: Optional mean of available dimensions; None when no measured
+            or proxy dimension has a score. Never treats unavailable as 0.
+    """
 
     id: str
     subject_id: str
@@ -70,6 +145,8 @@ class QualityResult:
     issues: list[Issue] = field(default_factory=list)
     evidence: dict[str, Any] = field(default_factory=dict)
     created_at: str = field(default_factory=utc_now_iso)
+    dimensions: dict[str, DimensionMeasurement] = field(default_factory=dict)
+    overall: float | None = None
 
     @classmethod
     def create(cls, subject_id: str, gate: GateResult, **kwargs: object) -> QualityResult:
@@ -84,6 +161,15 @@ class QualityResult:
                     QualityResult
         """
         return cls(id=new_id("qr"), subject_id=subject_id, gate=gate, **kwargs)  # type: ignore[arg-type]
+
+    def recompute_overall(self) -> float | None:
+        """Recompute overall from dimensions and store it on self.
+
+        Returns:
+                    float | None
+        """
+        self.overall = compute_overall_score(self.dimensions)
+        return self.overall
 
 
 @dataclass(slots=True)
