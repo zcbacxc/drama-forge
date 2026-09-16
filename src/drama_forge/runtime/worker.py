@@ -9,7 +9,7 @@ from typing import Any
 
 from drama_forge.artifacts.store import ArtifactStore
 from drama_forge.domain.asset import Artifact, Candidate, CandidateSet, Provenance
-from drama_forge.domain.common import ArtifactType
+from drama_forge.domain.common import ArtifactType, FailureClass
 from drama_forge.domain.production import DecisionRecord, GraphNode
 from drama_forge.providers.base import ProviderRequest, ProviderResponse
 from drama_forge.providers.router import ProviderRouter
@@ -133,6 +133,26 @@ class ProductionWorker:
         except Exception:
             return
 
+    @staticmethod
+    def _provider_failure(
+        node: GraphNode,
+        response: ProviderResponse,
+        **extra: Any,
+    ) -> TaskResult:
+        """Map a failed ProviderResponse to a HARD TaskResult.
+
+        Preserves ``response.retryable`` so the Scheduler can distinguish
+        transient failures (backoff retry) from permanent ones (FAILED).
+        """
+        return TaskResult(
+            node_id=node.id,
+            success=False,
+            error=response.error,
+            failure_class=FailureClass.HARD_FAILURE,
+            retryable=bool(response.retryable),
+            **extra,
+        )
+
     def _provenance(
         self,
         node: GraphNode,
@@ -188,7 +208,7 @@ class ProductionWorker:
             response=response,
         )
         if not response.ok:
-            return TaskResult(node_id=node.id, success=False, error=response.error)
+            return self._provider_failure(node, response)
 
         artifact = Artifact.create(
             artifact_type=ArtifactType.IMAGE
@@ -260,10 +280,9 @@ class ProductionWorker:
                 response=response,
             )
             if not response.ok:
-                return TaskResult(
-                    node_id=node.id,
-                    success=False,
-                    error=response.error,
+                return self._provider_failure(
+                    node,
+                    response,
                     artifact_ids=artifact_ids,
                     candidate_ids=candidate_ids,
                 )
@@ -366,7 +385,7 @@ class ProductionWorker:
             response=response,
         )
         if not response.ok:
-            return TaskResult(node_id=node.id, success=False, error=response.error)
+            return self._provider_failure(node, response)
 
         payload = parse_evaluation_json(response.content)
         result = evaluate_candidates(candidate_set, payload)
@@ -496,7 +515,7 @@ class ProductionWorker:
             response=response,
         )
         if not response.ok:
-            return TaskResult(node_id=node.id, success=False, error=response.error)
+            return self._provider_failure(node, response)
 
         artifact = Artifact.create(
             artifact_type=ArtifactType.AUDIO,

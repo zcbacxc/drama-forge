@@ -43,6 +43,20 @@ DEFAULT_CAPABILITY_MAP: dict[str, str] = {
 }
 
 
+def _is_retryable_http_status(status: int | None) -> bool:
+    """Classify HTTP status codes for scheduler retry eligibility.
+
+    Transient conditions (rate limit, server errors) are retryable;
+    client errors such as auth or bad request are permanent.
+    """
+    if status is None:
+        return True
+    code = int(status)
+    if code == 429 or code >= 500:
+        return True
+    return False
+
+
 @dataclass(slots=True)
 class HttpProviderConfig:
     """Configuration for an HTTP-backed provider adapter.
@@ -303,6 +317,7 @@ class OpenAICompatibleProvider(Provider):
                 error=f"http_{exc.code}: {exc.reason} {detail}".strip(),
                 provider_metadata={"provider": self.id, "model": self.config.model},
                 latency_ms=latency_ms,
+                retryable=_is_retryable_http_status(exc.code),
             )
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             latency_ms = (time.perf_counter() - started) * 1000.0
@@ -311,6 +326,7 @@ class OpenAICompatibleProvider(Provider):
                 error=f"network_error: {exc}",
                 provider_metadata={"provider": self.id, "model": self.config.model},
                 latency_ms=latency_ms,
+                retryable=True,
             )
         except Exception as exc:  # noqa: BLE001 - adapter must never raise
             latency_ms = (time.perf_counter() - started) * 1000.0
@@ -319,6 +335,7 @@ class OpenAICompatibleProvider(Provider):
                 error=f"unexpected_error: {exc}",
                 provider_metadata={"provider": self.id, "model": self.config.model},
                 latency_ms=latency_ms,
+                retryable=True,
             )
 
         try:
@@ -330,6 +347,7 @@ class OpenAICompatibleProvider(Provider):
                 technical_metadata={"http_status": status},
                 provider_metadata={"provider": self.id, "model": self.config.model},
                 latency_ms=latency_ms,
+                retryable=True,
             )
 
         return self._normalize_response(data, request=request, latency_ms=latency_ms)

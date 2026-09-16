@@ -195,6 +195,18 @@ class Settings:
 
     live_smoke: bool = False
 
+    # Retry backoff (Scheduler HARD failures only)
+    retry_base_delay: float = 0.5
+    retry_factor: float = 2.0
+    retry_max_delay: float = 30.0
+    retry_jitter: float = 0.1
+
+    # Circuit breaker (HTTP-backed providers; opt-in)
+    circuit_enabled: bool = False
+    circuit_failure_threshold: int = 5
+    circuit_recovery_timeout: float = 30.0
+    circuit_half_open_max_calls: int = 1
+
     @classmethod
     def from_environ(cls, environ: Mapping[str, str] | None = None) -> Settings:
         """Build Settings from an environment mapping (default ``os.environ``).
@@ -228,6 +240,21 @@ class Settings:
                 return float(raw)
             except ValueError:
                 return default
+
+        def get_int(key: str, default: int) -> int:
+            raw = get(key)
+            if not raw:
+                return default
+            try:
+                return int(raw)
+            except ValueError:
+                return default
+
+        def get_bool_default(key: str, default: bool) -> bool:
+            raw = get(key)
+            if not raw:
+                return default
+            return raw.lower() in _TRUTHY
 
         return cls(
             provider=get("DRAMA_FORGE_PROVIDER", "mock"),
@@ -293,6 +320,20 @@ class Settings:
             agnes_video_id=get("DRAMA_FORGE_AGNES_ID", "agnes-video"),
             agnes_timeout=get_float("DRAMA_FORGE_AGNES_TIMEOUT", 120.0),
             live_smoke=get_bool("DRAMA_FORGE_LIVE_SMOKE"),
+            retry_base_delay=get_float("DRAMA_FORGE_RETRY_BASE_DELAY", 0.5),
+            retry_factor=get_float("DRAMA_FORGE_RETRY_FACTOR", 2.0),
+            retry_max_delay=get_float("DRAMA_FORGE_RETRY_MAX_DELAY", 30.0),
+            retry_jitter=get_float("DRAMA_FORGE_RETRY_JITTER", 0.1),
+            circuit_enabled=get_bool_default("DRAMA_FORGE_CIRCUIT_ENABLED", False),
+            circuit_failure_threshold=get_int(
+                "DRAMA_FORGE_CIRCUIT_FAILURE_THRESHOLD", 5
+            ),
+            circuit_recovery_timeout=get_float(
+                "DRAMA_FORGE_CIRCUIT_RECOVERY_TIMEOUT", 30.0
+            ),
+            circuit_half_open_max_calls=get_int(
+                "DRAMA_FORGE_CIRCUIT_HALF_OPEN_MAX_CALLS", 1
+            ),
         )
 
     def to_env_dict(self) -> dict[str, str]:
@@ -332,6 +373,18 @@ class Settings:
             "DRAMA_FORGE_AGNES_TIMEOUT": str(self.agnes_timeout),
             "DRAMA_FORGE_PROVIDER_TIMEOUT": str(self.provider_timeout),
             "DRAMA_FORGE_DEEPSEEK_TIMEOUT": str(self.deepseek_timeout),
+            "DRAMA_FORGE_RETRY_BASE_DELAY": str(self.retry_base_delay),
+            "DRAMA_FORGE_RETRY_FACTOR": str(self.retry_factor),
+            "DRAMA_FORGE_RETRY_MAX_DELAY": str(self.retry_max_delay),
+            "DRAMA_FORGE_RETRY_JITTER": str(self.retry_jitter),
+            "DRAMA_FORGE_CIRCUIT_ENABLED": "1" if self.circuit_enabled else "0",
+            "DRAMA_FORGE_CIRCUIT_FAILURE_THRESHOLD": str(
+                self.circuit_failure_threshold
+            ),
+            "DRAMA_FORGE_CIRCUIT_RECOVERY_TIMEOUT": str(self.circuit_recovery_timeout),
+            "DRAMA_FORGE_CIRCUIT_HALF_OPEN_MAX_CALLS": str(
+                self.circuit_half_open_max_calls
+            ),
         }
         if self.provider_dry_run:
             mapping["DRAMA_FORGE_PROVIDER_DRY_RUN"] = "1"
