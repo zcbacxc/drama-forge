@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03
+
 ### Added
-- Public bilingual `docs/` set: architecture, contributing, roadmap, packaging, ADR, LLM/provider guides, AI guide index
-- GitHub PR template and issue templates (bug / feature / config)
 - CostTracker wiring (W4a): `ExecutionContext.cost_tracker` injected by `Engine.run` / `Engine._run_graph`; `ProductionWorker` records every `provider.generate` outcome (best-effort, never fails the task); `RunResult.cost_summary()` exposes the execution rollup
 - Provider outcome events `provider.called` / `provider.failed` carry cost, latency, and usage
 
@@ -55,5 +55,6 @@ Initial public release of the Core Engine implementation plan (stages A–F).
 - `.gitignore` root-scoped `artifacts/` so `src/drama_forge/artifacts/` is tracked
 - OpenAI-compatible chat endpoint joining when `base_url` already ends with `/v1`
 
-[Unreleased]: https://github.com/zcbacxc/drama-forge/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/zcbacxc/drama-forge/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/zcbacxc/drama-forge/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zcbacxc/drama-forge/releases/tag/v0.1.0
