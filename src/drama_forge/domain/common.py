@@ -86,6 +86,21 @@ class GateResult(StrEnum):
     BLOCK = "BLOCK"
 
 
+class DimensionStatus(StrEnum):
+    """How a quality dimension score was obtained.
+
+    - measured: real evaluator / judge / provider measurement.
+    - proxy: deterministic fallback (e.g. digest heuristic) — usable but not a true measurement.
+    - unavailable: dimension could not be assessed; must not be treated as 0.
+    - error: assessment attempted but failed.
+    """
+
+    MEASURED = "measured"
+    PROXY = "proxy"
+    UNAVAILABLE = "unavailable"
+    ERROR = "error"
+
+
 class ExecutionStatus(StrEnum):
     """Overall execution status."""
 

@@ -33,6 +33,7 @@ from drama_forge.quality.repair import RepairPlanner
 from drama_forge.quality.validators import validate_continuity
 from drama_forge.runtime.checkpoint import CheckpointStore
 from drama_forge.runtime.events import EventBus
+from drama_forge.runtime.retry import RetryPolicy, retry_policy_from_env
 from drama_forge.runtime.scheduler import (
     ExecutionContext,
     ExecutionPlan,
@@ -104,6 +105,7 @@ class Engine:
         db_path: str | Path | None = None,
         env: dict[str, str] | None = None,
         registry: ProviderRegistry | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         """Create an Engine facade.
 
@@ -113,6 +115,7 @@ class Engine:
             db_path: Optional SQLite path for durable production history.
             env: Optional environment mapping for provider factory.
             registry: Optional pre-built provider registry (overrides factory).
+            retry_policy: Optional backoff policy; defaults from env.
         """
         self.registry = registry or build_default_registry(
             env=env, enable_mock=enable_mock_providers
@@ -123,6 +126,7 @@ class Engine:
         self.repair_planner = RepairPlanner()
         self._executions: dict[str, RunResult] = {}
         self.fingerprint_cache: dict[str, dict[str, Any]] = {}
+        self.retry_policy = retry_policy or retry_policy_from_env(env)
         self.db: Any | None = None
         self._repos: dict[str, Any] = {}
         if db_path is not None:
@@ -160,6 +164,8 @@ class Engine:
             "candidate": CandidateRepository(self.db),
             "event": EventRepository(self.db),
         }
+        # Dual-write + DB fallback so resume works across Engine instances.
+        self.checkpoint_store.attach_repository(self._repos["checkpoint"])
 
     def compile(self, source: str | Path | dict[str, Any]) -> Story:
         """Compile a story source into a Story domain object.
@@ -235,6 +241,7 @@ class Engine:
             candidate_count: Candidates per shot.
             provider_policy: Optional routing policy override.
             resume_execution_id: Resume from a previous execution checkpoint.
+                Missing execution ids raise KeyError (no silent new run).
             inject_continuity_issue: Force a continuity failure for repair demos.
             knowledge: Optional Production Knowledge injected into continuity
                 constraints of this run (not the story content itself).
@@ -243,6 +250,11 @@ class Engine:
 
         Returns:
             RunResult with status, artifacts, timeline, quality report, knowledge.
+
+        Raises:
+            KeyError: If resume_execution_id cannot be resolved from memory or DB.
+            ValueError: If resume fingerprints do not match the current production
+                definition (story input or rebuilt graph).
         """
         manifest, plan, _story_graph = self.plan(
             story, candidate_count=candidate_count, knowledge=knowledge
@@ -262,14 +274,43 @@ class Engine:
 
         resume_checkpoint = None
         if resume_execution_id:
+            # Memory first; CheckpointStore.load falls back to DB when attached.
             resume_checkpoint = self.checkpoint_store.load(resume_execution_id)
+            if resume_checkpoint is None:
+                raise KeyError(
+                    f"unknown execution for resume: {resume_execution_id}"
+                )
+            current_input_fp = story.fingerprint()
+            if (
+                resume_checkpoint.input_fingerprint
+                and resume_checkpoint.input_fingerprint != current_input_fp
+            ):
+                raise ValueError(
+                    "resume rejected: input fingerprint mismatch "
+                    f"(checkpoint={resume_checkpoint.input_fingerprint}, "
+                    f"current={current_input_fp})"
+                )
+            current_graph_fp = graph.fingerprint()
+            if (
+                resume_checkpoint.graph_fingerprint
+                and resume_checkpoint.graph_fingerprint != current_graph_fp
+            ):
+                raise ValueError(
+                    "resume rejected: graph fingerprint mismatch "
+                    f"(checkpoint={resume_checkpoint.graph_fingerprint}, "
+                    f"current={current_graph_fp})"
+                )
+
+        # F14 decision B: resume keeps fingerprint reuse enabled so already
+        # confirmed node fingerprints can skip re-generation.
+        enable_fingerprint_reuse = True
 
         execution_plan = ExecutionPlan.create(
             graph=graph,
             input_fingerprint=story.fingerprint(),
             config={
                 "input_fingerprint": story.fingerprint(),
-                "enable_fingerprint_reuse": True,
+                "enable_fingerprint_reuse": enable_fingerprint_reuse,
                 "provider_policy": policy,
                 "manifest_id": manifest.id,
             },
@@ -282,7 +323,7 @@ class Engine:
             events=EventBus(),
             config={
                 "input_fingerprint": story.fingerprint(),
-                "enable_fingerprint_reuse": resume_checkpoint is None,
+                "enable_fingerprint_reuse": enable_fingerprint_reuse,
                 "provider_policy": policy,
                 "manifest_id": manifest.id,
             },
@@ -300,6 +341,7 @@ class Engine:
             max_attempts=2,
             fingerprint_cache=self.fingerprint_cache,
             max_workers=max_workers,
+            retry_policy=self.retry_policy,
         )
         if cancellation is not None:
             context.cancellation = cancellation
@@ -573,6 +615,7 @@ class Engine:
         """
         result = self._executions.get(execution_id)
         if result is None:
+            # Memory miss falls back to durable store when persistence is on.
             cp = self.checkpoint_store.load(execution_id)
             if cp is None:
                 return None
@@ -641,6 +684,7 @@ class Engine:
 
         prior = self._executions.get(execution_id)
         if prior is None:
+            # Memory miss falls back to durable store when persistence is on.
             cp = self.checkpoint_store.load(execution_id)
             if cp is None:
                 raise KeyError(f"unknown execution: {execution_id}")
@@ -757,6 +801,7 @@ class Engine:
             checkpoint_store=self.checkpoint_store,
             max_attempts=2,
             fingerprint_cache=self.fingerprint_cache,
+            retry_policy=self.retry_policy,
         )
         status = scheduler.run(graph, context)
 

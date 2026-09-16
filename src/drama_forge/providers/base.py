@@ -24,7 +24,15 @@ class ProviderRequest:
 
 @dataclass(slots=True)
 class ProviderResponse:
-    """Normalized response absorbed into Canonical Result."""
+    """Normalized response absorbed into Canonical Result.
+
+    Attributes:
+        ok: Whether the generation succeeded.
+        retryable: When ``ok`` is False, whether a scheduler-level retry
+            may help (transient network/5xx). Permanent errors (auth,
+            bad request, circuit open) set this False so HARD failures
+            go straight to FAILED without backoff retries.
+    """
 
     ok: bool
     content: bytes | str = ""
@@ -36,6 +44,7 @@ class ProviderResponse:
     latency_ms: float = 0.0
     usage: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
+    retryable: bool = True
 
 
 class Provider(ABC):

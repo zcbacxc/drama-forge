@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03
+
+### Added
+- Fingerprint discipline (W1): Spec fingerprint hashes only stable `selection_policy` keys; tunable `weights` do not change production identity
+- Durable checkpoint resume (W1): dual-write / SQLite fallback via existing `CheckpointRepository`; status/retry inherit DB fallback
+- Retry policy and circuit breaker (W4b): exponential backoff + jitter; opt-in `CircuitBreakerProvider`; `ProviderResponse.retryable` mapping; authoritative `max_attempts=2`
+- Evaluator dimension four-state status (W3a): `DimensionStatus` measured|proxy|unavailable|error; optional `QualityResult.dimensions`/`overall`
+
+### Changed
+- **Breaking**: unresolved `resume_execution_id` raises `KeyError` instead of silently starting a full run
+- **Breaking**: resume success enables fingerprint reuse; fingerprint mismatch rejected with `ValueError`
+
 ## [0.1.1] - 2026-03
 
 ### Added
@@ -55,6 +67,7 @@ Initial public release of the Core Engine implementation plan (stages A–F).
 - `.gitignore` root-scoped `artifacts/` so `src/drama_forge/artifacts/` is tracked
 - OpenAI-compatible chat endpoint joining when `base_url` already ends with `/v1`
 
-[Unreleased]: https://github.com/zcbacxc/drama-forge/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/zcbacxc/drama-forge/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/zcbacxc/drama-forge/compare/v0.1.1...v0.2.1
 [0.1.1]: https://github.com/zcbacxc/drama-forge/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/zcbacxc/drama-forge/releases/tag/v0.1.0
